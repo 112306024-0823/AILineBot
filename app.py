@@ -1,26 +1,27 @@
 from flask import Flask, request, abort
 from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
-from linebot.models import MessageEvent, TextMessage, TextSendMessage
+from linebot.models import MessageEvent, TextMessage, TextSendMessage, FileMessage
 import os
 import firebase_admin
 from firebase_admin import credentials, firestore
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
+import json
 
-# 使用 Google Drive API 的服務憑證初始化
-creds = service_account.Credentials.from_service_account_file("googledrive_credentials.json")
+# 從環境變數中加載 Google Drive API 憑證
+google_drive_info = json.loads(os.getenv("GOOGLE_DRIVE_CREDENTIALS"))
+creds = service_account.Credentials.from_service_account_info(google_drive_info)
 service = build('drive', 'v3', credentials=creds)
 
-
-# 使用 Firebase 控制台下載的服務憑證 JSON 檔案
-cred = credentials.Certificate("firebase_credentials.json")
+# 從環境變數中加載 Firebase 憑證
+firebase_info = json.loads(os.getenv("FIREBASE_CREDENTIALS"))
+cred = credentials.Certificate(firebase_info)
 firebase_admin.initialize_app(cred)
 
 # 建立 Firestore 客戶端
 db = firestore.client()
-
 
 app = Flask(__name__)
 # LINE BOT info
