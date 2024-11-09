@@ -16,6 +16,9 @@ google_drive_info = json.loads(os.getenv("GOOGLE_DRIVE_CREDENTIALS"))
 creds = service_account.Credentials.from_service_account_info(google_drive_info)
 service = build('drive', 'v3', credentials=creds)
 
+# 指定上傳目標資料夾的 folder_id
+FOLDER_ID = "1h7DL1gRlB96Dpxmad0-gMvSDdVjm57vn"  # 替換成你的 folder_id
+
 # 從環境變數中加載 Firebase 憑證
 firebase_info = json.loads(os.getenv("FIREBASE_CREDENTIALS"))
 cred = credentials.Certificate(firebase_info)
@@ -29,9 +32,12 @@ app = Flask(__name__)
 line_bot_api = LineBotApi(os.getenv('CHANNEL_ACCESS_TOKEN'))
 handler = WebhookHandler(os.getenv('CHANNEL_SECRET'))
 
-# 上傳檔案到 Google Drive 並返回下載連結
+# 上傳檔案到 Google Drive 的指定資料夾並返回下載連結
 def upload_file_to_google_drive(file_path, file_name):
-    file_metadata = {'name': file_name}
+    file_metadata = {
+        'name': file_name,
+        'parents': [FOLDER_ID]  # 將文件上傳至指定資料夾
+    }
     media = MediaFileUpload(file_path, resumable=True)
     file = service.files().create(body=file_metadata, media_body=media, fields='id').execute()
     file_id = file.get('id')
