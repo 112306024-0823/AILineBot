@@ -1,7 +1,7 @@
-from flask import Flask, request, abort
+from flask import Flask, request, abort, jsonify
 from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
-from linebot.models import MessageEvent, TextMessage, TextSendMessage, FileMessage
+from linebot.models import MessageEvent, TextMessage, TextSendMessage, FileMessage, QuickReply, QuickReplyButton, MessageAction
 import os
 import firebase_admin
 from firebase_admin import credentials, firestore
@@ -28,15 +28,14 @@ firebase_admin.initialize_app(cred)
 db = firestore.client()
 
 app = Flask(__name__)
-# LINE BOT info
 line_bot_api = LineBotApi(os.getenv('CHANNEL_ACCESS_TOKEN'))
 handler = WebhookHandler(os.getenv('CHANNEL_SECRET'))
 
-# 上傳檔案到 Google Drive 的指定資料夾並返回下載連結
+# 上傳檔案到 Google Drive 並返回下載連結
 def upload_file_to_google_drive(file_path, file_name):
     file_metadata = {
         'name': file_name,
-        'parents': [FOLDER_ID]  # 將文件上傳至指定資料夾
+        'parents': [FOLDER_ID]
     }
     media = MediaFileUpload(file_path, resumable=True)
     file = service.files().create(body=file_metadata, media_body=media, fields='id').execute()
@@ -46,18 +45,20 @@ def upload_file_to_google_drive(file_path, file_name):
     return file_url
 
 # 儲存檔案元數據到 Firestore
-def save_file_metadata(user_id, file_name, file_url):
+def save_file_metadata(user_id, file_name, file_url, subject="", grade=""):
     db.collection("notes").add({
         "user_id": user_id,
         "file_name": file_name,
-        "file_url": file_url
+        "file_url": file_url,
+        "subject": subject,
+        "grade": grade
     })
 
 # 背景處理上傳和儲存操作
-def background_upload_and_save(user_id, file_name, file_path):
+def background_upload_and_save(user_id, file_name, file_path, subject, grade):
     file_url = upload_file_to_google_drive(file_path, file_name)
-    save_file_metadata(user_id, file_name, file_url)
-    os.remove(file_path)  # 清除本地文件以節省空間
+    save_file_metadata(user_id, file_name, file_url, subject, grade)
+    os.remove(file_path)
 
 @app.route("/callback", methods=['POST'])
 def callback():
@@ -71,28 +72,52 @@ def callback():
         abort(400)
     return 'OK'
 
-# Message event: 處理文字訊息
+# 需求者選擇科目功能
+subject_selection = {}
+
 @handler.add(MessageEvent, message=TextMessage)
 def handle_text_message(event):
     user_id = event.source.user_id
     reply_token = event.reply_token
     message_text = event.message.text.strip()
 
-    if message_text == "我要上傳筆記":
-        line_bot_api.reply_message(reply_token, TextSendMessage(text="請上傳您的筆記檔案。"))
-    elif message_text == "我要取得筆記":
-        # 從 Firestore 中查詢使用者的筆記
-        notes = db.collection("notes").where("user_id", "==", user_id).stream()
-        notes_text = "\n".join([f"{note.to_dict()['file_name']}: {note.to_dict()['file_url']}" for note in notes])
-        
-        if notes_text:
-            line_bot_api.reply_message(reply_token, TextSendMessage(text=f"這是您的筆記連結：\n{notes_text}"))
-        else:
-            line_bot_api.reply_message(reply_token, TextSendMessage(text="目前沒有找到您的筆記。"))
-    else:
-        line_bot_api.reply_message(reply_token, TextSendMessage(text="我有收到您的訊息，但不確定您的需求。請輸入「我要上傳筆記」或「我要取得筆記」。"))
+    if message_text == "我要取得筆記":
+        # 提供可選的科目分類
+        subjects = ["經濟學", "統計學", "會計學", "微積分", "管理學"]
+        quick_reply_items = [QuickReplyButton(action=MessageAction(label=subject, text=subject)) for subject in subjects]
+        quick_reply = QuickReply(items=quick_reply_items)
+        line_bot_api.reply_message(reply_token, TextSendMessage(text="請選擇科目", quick_reply=quick_reply))
 
-# FileMessage event: 處理檔案上傳
+    elif message_text in ["經濟學", "統計學", "會計學", "微積分", "管理學"]:
+        selected_subject = message_text
+        notes = db.collection("notes").where("subject", "==", selected_subject).stream()
+        notes_text = "\n".join([f"{note.to_dict()['file_name']}: {note.to_dict()['file_url']}" for note in notes])
+
+        if notes_text:
+            line_bot_api.reply_message(reply_token, TextSendMessage(text=f"{selected_subject}的筆記：\n{notes_text}"))
+        else:
+            line_bot_api.reply_message(reply_token, TextSendMessage(text=f"目前沒有{selected_subject}的筆記。"))
+
+    elif message_text == "加入讀書會":
+        study_groups = ["讀書會 1: 數學討論", "讀書會 2: 物理衝刺班"]
+        groups_text = "\n".join(study_groups)
+        line_bot_api.reply_message(reply_token, TextSendMessage(text=f"可加入的讀書會：\n{groups_text}"))
+
+    elif message_text == "查詢歷史紀錄":
+        user_notes = db.collection("notes").where("user_id", "==", user_id).stream()
+        history_text = "\n".join([f"{note.to_dict()['file_name']}: {note.to_dict()['file_url']}" for note in user_notes])
+        if history_text:
+            line_bot_api.reply_message(reply_token, TextSendMessage(text=f"您的下載紀錄：\n{history_text}"))
+        else:
+            line_bot_api.reply_message(reply_token, TextSendMessage(text="您尚未下載任何筆記。"))
+
+    elif message_text == "我要上傳筆記":
+        # 使用 Quick Reply 提供科目選擇
+        subjects = ["經濟學", "統計學", "會計學", "微積分", "管理學"]
+        quick_reply_items = [QuickReplyButton(action=MessageAction(label=subject, text=subject)) for subject in subjects]
+        quick_reply = QuickReply(items=quick_reply_items)
+        line_bot_api.reply_message(reply_token, TextSendMessage(text="請選擇上傳的科目：", quick_reply=quick_reply))
+
 @handler.add(MessageEvent, message=FileMessage)
 def handle_file_message(event):
     user_id = event.source.user_id
@@ -100,22 +125,21 @@ def handle_file_message(event):
     message_id = event.message.id
     file_name = event.message.file_name
 
-    # 下載檔案內容
     message_content = line_bot_api.get_message_content(message_id)
     file_path = f"/tmp/{file_name}"
 
-    # 儲存檔案到本地 /tmp 資料夾
     with open(file_path, 'wb') as f:
         for chunk in message_content.iter_content():
             f.write(chunk)
 
-    # 回覆使用者，告知檔案正在處理中
-    line_bot_api.reply_message(reply_token, TextSendMessage(text="檔案已收到，正在處理中，稍後會提供下載連結。"))
+    # 回應並要求用戶填寫科目與年級資訊
+    line_bot_api.reply_message(reply_token, TextSendMessage(text="請選擇科目和年級資訊。"))
+    
+    # 儲存筆記並啟動背景上傳
+    subject = "數學"  # 假設用戶後續填寫後得到的值
+    grade = "高一"
+    Thread(target=background_upload_and_save, args=(user_id, file_name, file_path, subject, grade)).start()
 
-    # 在背景執行上傳和儲存操作
-    Thread(target=background_upload_and_save, args=(user_id, file_name, file_path)).start()
-
-# 啟動 Flask 伺服器
 if __name__ == "__main__":
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port)
