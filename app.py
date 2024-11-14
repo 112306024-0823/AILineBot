@@ -31,6 +31,9 @@ app = Flask(__name__)
 line_bot_api = LineBotApi(os.getenv('CHANNEL_ACCESS_TOKEN'))
 handler = WebhookHandler(os.getenv('CHANNEL_SECRET'))
 
+# 儲存使用者選擇的科目和年級
+user_selections = {}
+
 # 上傳檔案到 Google Drive 並返回下載連結
 def upload_file_to_google_drive(file_path, file_name):
     file_metadata = {
@@ -72,8 +75,14 @@ def callback():
         abort(400)
     return 'OK'
 
-# 需求者選擇科目功能
-subject_selection = {}
+# 顯示初始選單的 Quick Reply 回應
+def show_initial_options(reply_token):
+    options = [
+        QuickReplyButton(action=MessageAction(label="我要上傳筆記", text="我要上傳筆記")),
+        QuickReplyButton(action=MessageAction(label="我要取得筆記", text="我要取得筆記"))
+    ]
+    quick_reply = QuickReply(items=options)
+    line_bot_api.reply_message(reply_token, TextSendMessage(text="請選擇操作：", quick_reply=quick_reply))
 
 @handler.add(MessageEvent, message=TextMessage)
 def handle_text_message(event):
@@ -81,15 +90,39 @@ def handle_text_message(event):
     reply_token = event.reply_token
     message_text = event.message.text.strip()
 
-    if message_text == "我要取得筆記":
-        # 提供可選的科目分類
-        subjects = ["經濟學", "統計學", "會計學", "微積分", "管理學"]
-        quick_reply_items = [QuickReplyButton(action=MessageAction(label=subject, text=subject)) for subject in subjects]
-        quick_reply = QuickReply(items=quick_reply_items)
-        line_bot_api.reply_message(reply_token, TextSendMessage(text="請選擇科目", quick_reply=quick_reply))
+    # 無論收到什麼訊息，先顯示初始選單
+    if message_text not in ["我要上傳筆記", "我要取得筆記", "科目:", "年級:"]:
+        show_initial_options(reply_token)
+        return
 
-    elif message_text in ["經濟學", "統計學", "會計學", "微積分", "管理學"]:
-        selected_subject = message_text
+    if message_text == "我要上傳筆記":
+        user_selections[user_id] = {"mode": "upload"}
+        subjects = ["經濟學", "統計學", "會計學", "微積分", "管理學"]
+        quick_reply_items = [QuickReplyButton(action=MessageAction(label=subject, text=f"科目: {subject}")) for subject in subjects]
+        quick_reply = QuickReply(items=quick_reply_items)
+        line_bot_api.reply_message(reply_token, TextSendMessage(text="請選擇上傳的科目：", quick_reply=quick_reply))
+
+    elif message_text.startswith("科目:") and user_selections.get(user_id, {}).get("mode") == "upload":
+        subject = message_text.split(": ")[1]
+        user_selections[user_id]["subject"] = subject
+        grades = ["高一", "高二", "高三", "大一", "大二"]
+        quick_reply_items = [QuickReplyButton(action=MessageAction(label=grade, text=f"年級: {grade}")) for grade in grades]
+        quick_reply = QuickReply(items=quick_reply_items)
+        line_bot_api.reply_message(reply_token, TextSendMessage(text="請選擇年級：", quick_reply=quick_reply))
+
+    elif message_text.startswith("年級:") and user_selections.get(user_id, {}).get("mode") == "upload":
+        grade = message_text.split(": ")[1]
+        user_selections[user_id]["grade"] = grade
+        line_bot_api.reply_message(reply_token, TextSendMessage(text="請上傳您的筆記檔案。"))
+
+    elif message_text == "我要取得筆記":
+        subjects = ["經濟學", "統計學", "會計學", "微積分", "管理學"]
+        quick_reply_items = [QuickReplyButton(action=MessageAction(label=subject, text=f"搜尋科目: {subject}")) for subject in subjects]
+        quick_reply = QuickReply(items=quick_reply_items)
+        line_bot_api.reply_message(reply_token, TextSendMessage(text="請選擇要搜尋的科目", quick_reply=quick_reply))
+
+    elif message_text.startswith("搜尋科目:"):
+        selected_subject = message_text.split(": ")[1]
         notes = db.collection("notes").where("subject", "==", selected_subject).stream()
         notes_text = "\n".join([f"{note.to_dict()['file_name']}: {note.to_dict()['file_url']}" for note in notes])
 
@@ -98,26 +131,6 @@ def handle_text_message(event):
         else:
             line_bot_api.reply_message(reply_token, TextSendMessage(text=f"目前沒有{selected_subject}的筆記。"))
 
-    elif message_text == "加入讀書會":
-        study_groups = ["讀書會 1: 數學討論", "讀書會 2: 物理衝刺班"]
-        groups_text = "\n".join(study_groups)
-        line_bot_api.reply_message(reply_token, TextSendMessage(text=f"可加入的讀書會：\n{groups_text}"))
-
-    elif message_text == "查詢歷史紀錄":
-        user_notes = db.collection("notes").where("user_id", "==", user_id).stream()
-        history_text = "\n".join([f"{note.to_dict()['file_name']}: {note.to_dict()['file_url']}" for note in user_notes])
-        if history_text:
-            line_bot_api.reply_message(reply_token, TextSendMessage(text=f"您的下載紀錄：\n{history_text}"))
-        else:
-            line_bot_api.reply_message(reply_token, TextSendMessage(text="您尚未下載任何筆記。"))
-
-    elif message_text == "我要上傳筆記":
-        # 使用 Quick Reply 提供科目選擇
-        subjects = ["經濟學", "統計學", "會計學", "微積分", "管理學"]
-        quick_reply_items = [QuickReplyButton(action=MessageAction(label=subject, text=subject)) for subject in subjects]
-        quick_reply = QuickReply(items=quick_reply_items)
-        line_bot_api.reply_message(reply_token, TextSendMessage(text="請選擇上傳的科目：", quick_reply=quick_reply))
-
 @handler.add(MessageEvent, message=FileMessage)
 def handle_file_message(event):
     user_id = event.source.user_id
@@ -125,20 +138,25 @@ def handle_file_message(event):
     message_id = event.message.id
     file_name = event.message.file_name
 
-    message_content = line_bot_api.get_message_content(message_id)
-    file_path = f"/tmp/{file_name}"
+    if user_selections.get(user_id, {}).get("mode") == "upload":
+        subject = user_selections[user_id].get("subject", "")
+        grade = user_selections[user_id].get("grade", "")
 
-    with open(file_path, 'wb') as f:
-        for chunk in message_content.iter_content():
-            f.write(chunk)
+        if not subject or not grade:
+            line_bot_api.reply_message(reply_token, TextSendMessage(text="請先選擇科目和年級。"))
+            return
 
-    # 回應並要求用戶填寫科目與年級資訊
-    line_bot_api.reply_message(reply_token, TextSendMessage(text="請選擇科目和年級資訊。"))
-    
-    # 儲存筆記並啟動背景上傳
-    subject = "數學"  # 假設用戶後續填寫後得到的值
-    grade = "高一"
-    Thread(target=background_upload_and_save, args=(user_id, file_name, file_path, subject, grade)).start()
+        message_content = line_bot_api.get_message_content(message_id)
+        file_path = f"/tmp/{file_name}"
+
+        with open(file_path, 'wb') as f:
+            for chunk in message_content.iter_content():
+                f.write(chunk)
+
+        Thread(target=background_upload_and_save, args=(user_id, file_name, file_path, subject, grade)).start()
+        line_bot_api.reply_message(reply_token, TextSendMessage(text="檔案已成功上傳！"))
+    else:
+        line_bot_api.reply_message(reply_token, TextSendMessage(text="請先點擊「我要上傳筆記」並完成科目與年級選擇。"))
 
 if __name__ == "__main__":
     port = int(os.environ.get('PORT', 5000))
