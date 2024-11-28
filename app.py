@@ -155,7 +155,7 @@ def handle_text_message(event):
         quick_reply = QuickReply(items=quick_reply_items)
         line_bot_api.reply_message(reply_token, TextSendMessage(text="請選擇要搜尋的科目", quick_reply=quick_reply))
 
-       elif message_text.startswith("搜尋科目:"):
+    elif message_text.startswith("搜尋科目:"):
         selected_subject = message_text.split(": ")[1]
         notes = db.collection("notes").where("subject", "==", selected_subject).stream()
         
