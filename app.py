@@ -34,6 +34,12 @@ handler = WebhookHandler(os.getenv('CHANNEL_SECRET'))
 # 儲存使用者選擇的科目和年級
 user_selections = {}
 
+# 儲存用戶的模式
+user_modes = {}
+
+# 設定管理者的 LINE ID
+admin_ids = ["0978199224", "管理者LINE_ID_2"]  # 設定為你測試用的管理者LINE ID
+
 # 上傳檔案到 Google Drive 並返回下載連結
 def upload_file_to_google_drive(file_path, file_name):
     file_metadata = {
@@ -76,13 +82,23 @@ def callback():
     return 'OK'
 
 # 顯示初始選單的 Quick Reply 回應
-def show_initial_options(reply_token):
-    options = [
-        QuickReplyButton(action=MessageAction(label="我要上傳筆記", text="我要上傳筆記")),
-        QuickReplyButton(action=MessageAction(label="我要取得筆記", text="我要取得筆記"))
-    ]
-    quick_reply = QuickReply(items=options)
-    line_bot_api.reply_message(reply_token, TextSendMessage(text="請選擇操作：", quick_reply=quick_reply))
+def show_initial_options(reply_token, user_id):
+    current_mode = user_modes.get(user_id, None)
+    
+    if current_mode == "管理者":
+        options = [
+            QuickReplyButton(action=MessageAction(label="需求者模式", text="需求者模式")),
+            QuickReplyButton(action=MessageAction(label="供給者模式", text="供給者模式"))
+        ]
+        quick_reply = QuickReply(items=options)
+        line_bot_api.reply_message(reply_token, TextSendMessage(text="您目前是管理者模式，請選擇切換模式：", quick_reply=quick_reply))
+    else:
+        options = [
+            QuickReplyButton(action=MessageAction(label="我要上傳筆記", text="我要上傳筆記")),
+            QuickReplyButton(action=MessageAction(label="我要取得筆記", text="我要取得筆記"))
+        ]
+        quick_reply = QuickReply(items=options)
+        line_bot_api.reply_message(reply_token, TextSendMessage(text="請選擇操作：", quick_reply=quick_reply))
 
 @handler.add(MessageEvent, message=TextMessage)
 def handle_text_message(event):
@@ -90,11 +106,29 @@ def handle_text_message(event):
     reply_token = event.reply_token
     message_text = event.message.text.strip()
 
-    # 無論收到什麼訊息，先顯示初始選單
-    if message_text not in ["我要上傳筆記", "我要取得筆記", "科目:", "年級:"]:
-        show_initial_options(reply_token)
+    # 管理者模式身份切換
+    if message_text == "需求者模式" and user_id in admin_ids:
+        user_modes[user_id] = "需求者"
+        line_bot_api.reply_message(reply_token, TextSendMessage(text="您已切換為需求者模式"))
+        show_initial_options(reply_token, user_id)
+        return
+    elif message_text == "供給者模式" and user_id in admin_ids:
+        user_modes[user_id] = "供給者"
+        line_bot_api.reply_message(reply_token, TextSendMessage(text="您已切換為供給者模式"))
+        show_initial_options(reply_token, user_id)
+        return
+    elif message_text == "管理者模式" and user_id in admin_ids:
+        user_modes[user_id] = "管理者"
+        line_bot_api.reply_message(reply_token, TextSendMessage(text="您已進入管理者模式"))
+        show_initial_options(reply_token, user_id)
         return
 
+    # 如果不是管理者，回應錯誤
+    if message_text == "管理者模式" and user_id not in admin_ids:
+        line_bot_api.reply_message(reply_token, TextSendMessage(text="您不是管理者，無法進入管理者模式。"))
+        return
+
+    # 處理上傳筆記選項
     if message_text == "我要上傳筆記":
         user_selections[user_id] = {"mode": "upload"}
         subjects = ["經濟學", "統計學", "會計學", "微積分", "管理學"]
@@ -105,7 +139,7 @@ def handle_text_message(event):
     elif message_text.startswith("科目:") and user_selections.get(user_id, {}).get("mode") == "upload":
         subject = message_text.split(": ")[1]
         user_selections[user_id]["subject"] = subject
-        grades = ["高一", "高二", "高三", "大一", "大二"]
+        grades = [ "大一", "大二","大三", "大四"]
         quick_reply_items = [QuickReplyButton(action=MessageAction(label=grade, text=f"年級: {grade}")) for grade in grades]
         quick_reply = QuickReply(items=quick_reply_items)
         line_bot_api.reply_message(reply_token, TextSendMessage(text="請選擇年級：", quick_reply=quick_reply))
@@ -124,40 +158,4 @@ def handle_text_message(event):
     elif message_text.startswith("搜尋科目:"):
         selected_subject = message_text.split(": ")[1]
         notes = db.collection("notes").where("subject", "==", selected_subject).stream()
-        notes_text = "\n".join([f"{note.to_dict()['file_name']}: {note.to_dict()['file_url']}" for note in notes])
-
-        if notes_text:
-            line_bot_api.reply_message(reply_token, TextSendMessage(text=f"{selected_subject}的筆記：\n{notes_text}"))
-        else:
-            line_bot_api.reply_message(reply_token, TextSendMessage(text=f"目前沒有{selected_subject}的筆記。"))
-
-@handler.add(MessageEvent, message=FileMessage)
-def handle_file_message(event):
-    user_id = event.source.user_id
-    reply_token = event.reply_token
-    message_id = event.message.id
-    file_name = event.message.file_name
-
-    if user_selections.get(user_id, {}).get("mode") == "upload":
-        subject = user_selections[user_id].get("subject", "")
-        grade = user_selections[user_id].get("grade", "")
-
-        if not subject or not grade:
-            line_bot_api.reply_message(reply_token, TextSendMessage(text="請先選擇科目和年級。"))
-            return
-
-        message_content = line_bot_api.get_message_content(message_id)
-        file_path = f"/tmp/{file_name}"
-
-        with open(file_path, 'wb') as f:
-            for chunk in message_content.iter_content():
-                f.write(chunk)
-
-        Thread(target=background_upload_and_save, args=(user_id, file_name, file_path, subject, grade)).start()
-        line_bot_api.reply_message(reply_token, TextSendMessage(text="檔案已成功上傳！"))
-    else:
-        line_bot_api.reply_message(reply_token, TextSendMessage(text="請先點擊「我要上傳筆記」並完成科目與年級選擇。"))
-
-if __name__ == "__main__":
-    port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port)
+        notes_text = "\n".join([f"{note.to_dict()['file_name']}:
