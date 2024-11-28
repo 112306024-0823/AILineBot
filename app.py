@@ -155,7 +155,58 @@ def handle_text_message(event):
         quick_reply = QuickReply(items=quick_reply_items)
         line_bot_api.reply_message(reply_token, TextSendMessage(text="請選擇要搜尋的科目", quick_reply=quick_reply))
 
-    elif message_text.startswith("搜尋科目:"):
+       elif message_text.startswith("搜尋科目:"):
         selected_subject = message_text.split(": ")[1]
         notes = db.collection("notes").where("subject", "==", selected_subject).stream()
-        notes_text = "\n".join([f"{note.to_dict()['file_name']}:
+        
+        # 構建筆記列表
+        notes_text = "\n".join([f"{note.to_dict()['file_name']}: {note.to_dict()['file_url']}" for note in notes])
+
+        # 發送筆記資料或無筆記提示
+        if notes_text:
+            line_bot_api.reply_message(reply_token, TextSendMessage(text=f"{selected_subject}的筆記：\n{notes_text}"))
+        else:
+            line_bot_api.reply_message(reply_token, TextSendMessage(text=f"目前沒有{selected_subject}的筆記。"))
+
+    # 其他情況（如上傳筆記的文件處理）
+    elif message_text == "我要上傳筆記" and user_selections.get(user_id, {}).get("mode") == "upload":
+        line_bot_api.reply_message(reply_token, TextSendMessage(text="請先選擇科目與年級，並上傳檔案。"))
+
+# 處理文件上傳
+@handler.add(MessageEvent, message=FileMessage)
+def handle_file_message(event):
+    user_id = event.source.user_id
+    reply_token = event.reply_token
+    message_id = event.message.id
+    file_name = event.message.file_name
+
+    if user_selections.get(user_id, {}).get("mode") == "upload":
+        subject = user_selections[user_id].get("subject", "")
+        grade = user_selections[user_id].get("grade", "")
+
+        if not subject or not grade:
+            line_bot_api.reply_message(reply_token, TextSendMessage(text="請先選擇科目和年級。"))
+            return
+
+        message_content = line_bot_api.get_message_content(message_id)
+        file_path = f"/tmp/{file_name}"
+
+        with open(file_path, 'wb') as f:
+            for chunk in message_content.iter_content():
+                f.write(chunk)
+
+        # 使用背景處理上傳
+        Thread(target=background_upload_and_save, args=(user_id, file_name, file_path, subject, grade)).start()
+        line_bot_api.reply_message(reply_token, TextSendMessage(text="檔案已成功上傳！"))
+    else:
+        line_bot_api.reply_message(reply_token, TextSendMessage(text="請先點擊「我要上傳筆記」並完成科目與年級選擇。"))
+
+if __name__ == "__main__":
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port)
+
+
+
+
+
+
