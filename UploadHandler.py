@@ -93,7 +93,9 @@ class UploadHandler:
                     padding: 20px;
                     border-radius: 8px;
                     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-                    width: 400px;
+                    width: 80%; /* 設定寬度佔80% */
+                    max-width: 400px; /* 最大寬度限制 */
+                    box-sizing: border-box;
                 }
                 .upload-form h1 {
                     font-size: 20px;
@@ -131,6 +133,32 @@ class UploadHandler:
                     background-color: #45a049;
                 }
             </style>
+            <script>
+            // 上傳成功後自動跳轉回 LINE
+            function handleUploadResponse(response) {
+                if (response.status === 'success') {
+                    alert('檔案上傳成功！即將返回 LINE');
+                    setTimeout(() => {
+                        window.location.href = "line://nv/chat"; // 跳回 LINE 聊天
+                    }, 2000);
+                } else {
+                    alert(response.message || '上傳失敗，請重試！');
+                }
+            }
+
+            async function submitForm(event) {
+                event.preventDefault();
+                const form = event.target;
+                const formData = new FormData(form);
+
+                const response = await fetch(form.action, {
+                    method: form.method,
+                    body: formData,
+                });
+                const jsonResponse = await response.json();
+                handleUploadResponse(jsonResponse);
+            }
+        </script>
         </head>
         <body>
             <form class="upload-form" method="post" enctype="multipart/form-data">

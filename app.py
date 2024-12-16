@@ -11,6 +11,8 @@ from googleapiclient.http import MediaFileUpload
 import json
 from threading import Thread
 from UploadHandler import UploadHandler
+from flexmessage import create_upload_success_flex
+
 
 
 # 從環境變數中加載 Google Drive API 憑證
@@ -69,9 +71,25 @@ def save_file_metadata(user_id, file_name, file_url, subject="", grade=""):
 
 # 背景處理上傳和儲存操作
 def background_upload_and_save(user_id, file_name, file_path, subject, grade):
-    file_url = upload_file_to_google_drive(file_path, file_name)
-    save_file_metadata(user_id, file_name, file_url, subject, grade)
-    os.remove(file_path)
+    try:
+        # 上傳到 Google Drive 並獲取檔案連結
+        file_url = upload_file_to_google_drive(file_path, file_name)
+
+        # 儲存到 Firebase
+        save_file_metadata(user_id, file_name, file_url, subject, grade)
+
+        # 刪除本地檔案
+        os.remove(file_path)
+
+        # 發送 Flex Message 通知用戶
+        flex_message = create_upload_success_flex(file_name, subject, grade)
+        line_bot_api.push_message(user_id, flex_message)
+
+        print(f"檔案已上傳：{file_name}, 並通知用戶 {user_id}")
+
+    except Exception as e:
+        print(f"背景處理失敗：{e}")
+
 
 @app.route("/callback", methods=['POST'])
 def callback():
