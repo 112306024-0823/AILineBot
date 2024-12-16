@@ -2,15 +2,34 @@ import os
 from flask import Blueprint, request, jsonify
 from threading import Thread
 
-# 模擬背景處理邏輯（實際應替換為你自己的實現）
 def background_upload_and_save(user_id, file_name, file_path, subject, grade):
-    print(f"開始處理檔案上傳：{file_name}, 科目：{subject}, 年級：{grade}")
-    # 模擬 Google Drive 上傳
-    file_url = f"https://drive.google.com/uc?id=dummy_file_id&export=download"
-    # 模擬儲存到 Firebase
-    print(f"檔案已儲存到 Firebase，檔案連結：{file_url}")
-    os.remove(file_path)
-    print(f"本地檔案已刪除：{file_path}")
+    """
+    背景處理檔案上傳到 Google Drive 和儲存到 Firebase 的邏輯。
+    """
+    try:
+        print(f"開始處理檔案上傳：{file_name}, 科目：{subject}, 年級：{grade}")
+
+        # 上傳到 Google Drive 並獲取下載連結
+        file_url = upload_file_to_google_drive(file_path, file_name)
+
+        # 儲存檔案資訊到 Firebase
+        db.collection("notes").add({
+            "user_id": user_id,
+            "file_name": file_name,
+            "file_url": file_url,
+            "subject": subject,
+            "grade": grade,
+            "status": "審核中"  # 設置檔案狀態
+        })
+
+        print(f"檔案已上傳到 Google Drive，並儲存到 Firebase：{file_url}")
+
+        # 刪除本地檔案
+        os.remove(file_path)
+        print(f"本地檔案已刪除：{file_path}")
+
+    except Exception as e:
+        print(f"背景處理失敗：{e}")
 
 class UploadHandler:
     def __init__(self, upload_folder="uploads"):
