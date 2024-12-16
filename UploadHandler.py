@@ -72,69 +72,75 @@ class UploadHandler:
         return "." in filename and filename.rsplit(".", 1)[1].lower() in allowed_extensions
 
     def render_upload_form(self):
-        return '''
-        <!doctype html>
-        <html>
-        <head>
-            <title>檔案上傳</title>
-            <style>
-                body {
-                    font-family: Arial, sans-serif;
-                    background-color: #f4f4f4;
-                    margin: 0;
-                    padding: 20px;
-                    display: flex;
-                    justify-content: center;
-                    align-items: center;
-                    height: 100vh;
-                }
+    return '''
+    <!doctype html>
+    <html>
+    <head>
+        <title>檔案上傳</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+            body {
+                font-family: Arial, sans-serif;
+                background-color: rgba(0, 0, 0, 0.6); /* 半透明背景 */
+                margin: 0;
+                padding: 0;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                height: 100vh;
+                overflow: hidden; /* 防止滾動 */
+            }
+            .upload-form {
+                background: #ffffff;
+                padding: 20px;
+                border-radius: 8px;
+                box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+                width: 90%; /* 手機適配，默認占90%寬度 */
+                max-width: 400px; /* 最大寬度限制 */
+                box-sizing: border-box;
+            }
+            .upload-form h1 {
+                font-size: 20px;
+                text-align: center;
+                color: #333333;
+                margin-bottom: 20px;
+            }
+            .upload-form label {
+                display: block;
+                margin-bottom: 8px;
+                font-weight: bold;
+                color: #555555;
+            }
+            .upload-form input[type="text"], 
+            .upload-form select,
+            .upload-form input[type="file"] {
+                width: 100%;
+                padding: 10px;
+                margin-bottom: 15px;
+                border: 1px solid #cccccc;
+                border-radius: 4px;
+                box-sizing: border-box;
+            }
+            .upload-form button {
+                background-color: #4CAF50;
+                color: white;
+                padding: 10px 15px;
+                border: none;
+                border-radius: 4px;
+                cursor: pointer;
+                font-size: 16px;
+                width: 100%;
+            }
+            .upload-form button:hover {
+                background-color: #45a049;
+            }
+            @media (min-width: 768px) {
                 .upload-form {
-                    background: #ffffff;
-                    padding: 20px;
-                    border-radius: 8px;
-                    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-                    width: 80%; /* 設定寬度佔80% */
-                    max-width: 400px; /* 最大寬度限制 */
-                    box-sizing: border-box;
+                    width: 50%; /* 平板以上寬度占螢幕50% */
                 }
-                .upload-form h1 {
-                    font-size: 20px;
-                    text-align: center;
-                    color: #333333;
-                    margin-bottom: 20px;
-                }
-                .upload-form label {
-                    display: block;
-                    margin-bottom: 8px;
-                    font-weight: bold;
-                    color: #555555;
-                }
-                .upload-form input[type="text"], 
-                .upload-form select,
-                .upload-form input[type="file"] {
-                    width: 100%;
-                    padding: 10px;
-                    margin-bottom: 15px;
-                    border: 1px solid #cccccc;
-                    border-radius: 4px;
-                    box-sizing: border-box;
-                }
-                .upload-form button {
-                    background-color: #4CAF50;
-                    color: white;
-                    padding: 10px 15px;
-                    border: none;
-                    border-radius: 4px;
-                    cursor: pointer;
-                    font-size: 16px;
-                    width: 100%;
-                }
-                .upload-form button:hover {
-                    background-color: #45a049;
-                }
-            </style>
-            <script>
-            // 上傳成功後自動跳轉回 LINE
+            }
+        </style>
+        <script>
             function handleUploadResponse(response) {
                 if (response.status === 'success') {
                     alert('檔案上傳成功！即將返回 LINE');
@@ -159,28 +165,29 @@ class UploadHandler:
                 handleUploadResponse(jsonResponse);
             }
         </script>
-        </head>
-        <body>
-            <form class="upload-form" method="post" enctype="multipart/form-data">
-                <h1>檔案上傳</h1>
-                <label for="subject">科目名稱</label>
-                <input type="text" id="subject" name="subject" placeholder="例如：數學" required>
-                
-                <label for="grade">選擇年級</label>
-                <select id="grade" name="grade" required>
-                    <option value="" disabled selected>請選擇年級</option>
-                    <option value="大一">大一</option>
-                    <option value="大二">大二</option>
-                    <option value="大三">大三</option>
-                    <option value="大四">大四</option>
-                    <option value="研究生">研究生</option>
-                </select>
-                
-                <label for="file">選擇檔案</label>
-                <input type="file" id="file" name="file" accept=".pdf,.png,.jpg,.jpeg,.doc,.docx" required>
-                
-                <button type="submit">上傳</button>
-            </form>
-        </body>
-        </html>
-        '''
+    </head>
+    <body>
+        <form class="upload-form" method="post" enctype="multipart/form-data" onsubmit="submitForm(event)">
+            <h1>檔案上傳</h1>
+            <label for="subject">科目名稱</label>
+            <input type="text" id="subject" name="subject" placeholder="例如：數學" required>
+            
+            <label for="grade">選擇年級</label>
+            <select id="grade" name="grade" required>
+                <option value="" disabled selected>請選擇年級</option>
+                <option value="大一">大一</option>
+                <option value="大二">大二</option>
+                <option value="大三">大三</option>
+                <option value="大四">大四</option>
+                <option value="研究生">研究生</option>
+            </select>
+            
+            <label for="file">選擇檔案</label>
+            <input type="file" id="file" name="file" accept=".pdf,.png,.jpg,.jpeg,.doc,.docx" required>
+            
+            <button type="submit">上傳</button>
+        </form>
+    </body>
+    </html>
+    '''
+
