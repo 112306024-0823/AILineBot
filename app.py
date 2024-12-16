@@ -10,6 +10,8 @@ from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 import json
 from threading import Thread
+from UploadHandler import UploadHandler
+
 
 # 從環境變數中加載 Google Drive API 憑證
 google_drive_info = json.loads(os.getenv("GOOGLE_DRIVE_CREDENTIALS"))
