@@ -128,7 +128,7 @@ def handle_text_message(event):
     reply_token = event.reply_token
     message_text = event.message.text.strip()
 
-    if message_text == "上傳檔案":
+    if message_text == "我要上傳筆記":
         quick_reply = QuickReply(items=[
             QuickReplyButton(action=URIAction(label="點擊上傳檔案", uri=f"https://{request.host}/upload"))
         ])
@@ -136,8 +136,6 @@ def handle_text_message(event):
             reply_token,
             TextSendMessage(text="請點擊下方按鈕上傳檔案：", quick_reply=quick_reply)
         )
-    else:
-        line_bot_api.reply_message(reply_token, TextSendMessage(text="請選擇正確的操作！"))
 
 if __name__ == "__main__":
     port = int(os.environ.get('PORT', 5000))
