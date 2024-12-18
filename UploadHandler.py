@@ -58,13 +58,76 @@ class UploadHandler:
         return "." in filename and filename.rsplit(".", 1)[1].lower() in allowed_extensions
 
     def render_upload_form(self):
-        """返回上傳檔案的 HTML 表單頁面"""
+        """返回美化的上傳檔案 HTML 表單頁面"""
         return '''
         <!doctype html>
         <html>
         <head>
             <title>檔案上傳</title>
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <style>
+                body {
+                    font-family: Arial, sans-serif;
+                    background-color: #f4f4f4;
+                    margin: 0;
+                    padding: 0;
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    height: 100vh;
+                }
+                .upload-container {
+                    background: white;
+                    padding: 20px 30px;
+                    border-radius: 10px;
+                    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+                    width: 100%;
+                    max-width: 400px;
+                    box-sizing: border-box;
+                }
+                .upload-container h1 {
+                    font-size: 24px;
+                    margin-bottom: 20px;
+                    text-align: center;
+                    color: #333;
+                }
+                .upload-container label {
+                    font-size: 14px;
+                    color: #555;
+                    margin-bottom: 5px;
+                    display: block;
+                }
+                .upload-container input[type="text"],
+                .upload-container select,
+                .upload-container input[type="file"] {
+                    width: 100%;
+                    padding: 10px;
+                    margin-bottom: 15px;
+                    border: 1px solid #ddd;
+                    border-radius: 5px;
+                    font-size: 14px;
+                    box-sizing: border-box;
+                }
+                .upload-container button {
+                    background-color: #4CAF50;
+                    color: white;
+                    padding: 10px 15px;
+                    border: none;
+                    border-radius: 5px;
+                    font-size: 16px;
+                    cursor: pointer;
+                    width: 100%;
+                }
+                .upload-container button:hover {
+                    background-color: #45a049;
+                }
+                .upload-container .help-text {
+                    font-size: 12px;
+                    color: #888;
+                    margin-top: -10px;
+                    margin-bottom: 15px;
+                }
+            </style>
             <script>
                 function handleUpload(event) {
                     event.preventDefault();
@@ -82,13 +145,30 @@ class UploadHandler:
             </script>
         </head>
         <body>
-            <form method="post" enctype="multipart/form-data" onsubmit="handleUpload(event)">
-                <label>科目名稱</label><input type="text" name="subject" required><br>
-                <label>選擇年級</label><input type="text" name="grade" required><br>
-                <input type="hidden" name="user_id" value="demo_user_id"> <!-- 從 URL 或預填 -->
-                <label>選擇檔案</label><input type="file" name="file" required><br>
-                <button type="submit">上傳</button>
-            </form>
+            <div class="upload-container">
+                <h1>上傳檔案</h1>
+                <form method="post" enctype="multipart/form-data" onsubmit="handleUpload(event)">
+                    <label for="subject">科目名稱</label>
+                    <input type="text" id="subject" name="subject" placeholder="例如：數學、物理" required>
+                    <span class="help-text">* 可自行填寫科目名稱</span>
+                    
+                    <label for="grade">選擇年級</label>
+                    <select id="grade" name="grade" required>
+                        <option value="" disabled selected>請選擇年級</option>
+                        <option value="大一">大一</option>
+                        <option value="大二">大二</option>
+                        <option value="大三">大三</option>
+                        <option value="大四">大四</option>
+                        <option value="研究生">研究生</option>
+                    </select>
+                    
+                    <label for="file">選擇檔案</label>
+                    <input type="file" id="file" name="file" accept=".pdf,.png,.jpg,.jpeg,.doc,.docx" required>
+                    
+                    <button type="submit">上傳</button>
+                </form>
+            </div>
         </body>
         </html>
         '''
+
