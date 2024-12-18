@@ -1,7 +1,8 @@
 from flask import Flask, request, abort, jsonify
 from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
-from linebot.models import MessageEvent, TextMessage, TextSendMessage, QuickReply, QuickReplyButton, URIAction
+
+from linebot.models import MessageEvent, TextMessage, TextSendMessage, QuickReply, QuickReplyButton, URIAction,ImageSendMessage,MessageAction
 import os
 import firebase_admin
 from firebase_admin import credentials, firestore
@@ -10,7 +11,7 @@ from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 import json
 from threading import Thread
-import Upload_Handler
+from Upload_Handler import UploadHandler
 
 
 # 初始化 Google Drive 和 Firebase 配置
@@ -31,7 +32,7 @@ line_bot_api = LineBotApi(os.getenv('CHANNEL_ACCESS_TOKEN'))
 handler = WebhookHandler(os.getenv('CHANNEL_SECRET'))
 
 # 註冊 UploadHandler
-upload_handler = Upload_Handler(upload_folder="uploads", line_bot_api=line_bot_api, folder_id=FOLDER_ID)
+upload_handler = UploadHandler(upload_folder="uploads", line_bot_api=line_bot_api, folder_id=FOLDER_ID)
 app.register_blueprint(upload_handler.blueprint)
 
 
@@ -86,26 +87,50 @@ def handle_text_message(event):
     reply_token = event.reply_token
     message_text = event.message.text.strip()
 
-    if message_text == "我要上傳筆記":
+    if "購買筆記" in message_text:
+        # 建立 Quick Reply 提供付款選擇
         quick_reply = QuickReply(items=[
-            QuickReplyButton(action=URIAction(label="點擊上傳檔案", uri=f"https://{request.host}/upload"))
+            QuickReplyButton(action=MessageAction(label="LINE Pay", text="選擇 LINE Pay")),
+            QuickReplyButton(action=MessageAction(label="郵局匯款", text="選擇 郵局匯款")) 
         ])
-        line_bot_api.reply_message(
-            reply_token,
-            TextSendMessage(text="請點擊下方按鈕上傳檔案：", quick_reply=quick_reply)
+        reply_message = TextSendMessage(
+            text="請選擇您的付款方式：", quick_reply=quick_reply
         )
-    elif "購買筆記" in message_text:
-        reply_message = (
-            "📌 付款方式：\n"
-            "🏦 郵局轉帳\n"
-            "銀行代碼：700\n"
-            "帳號：0000023980362050\n"
-            "💚 **LINE Pay**\n"
-            "點擊以下連結進行付款：\n"
-            "🔗 [LINE Pay 付款連結]\n\n"
-            "📤 完成付款後，請回傳付款截圖，我們將再確收款項後提供限時有效的下載連結給您！"
+        line_bot_api.reply_message(reply_token, reply_message)
+
+    elif message_text == "選擇 LINE Pay":
+        # 傳送 LINE Pay 的 QR Code 圖片和訊息
+        linepay_image_url = f"https://{request.host}/static/images/linepay_qrcode.jpg"
+        text_message = TextSendMessage(
+            text=(
+                "✨ 感謝您的支持！\n\n"
+                "📷 請掃描以下的 QR Code 完成付款：\n\n"
+                "📤 完成付款後，請回傳付款截圖，我們將在確認款項後提供限時有效的下載連結給您！\n\n"
+                "🌟 感謝您的支持與信任，期待您的購買！ 🛍️"
+            )
         )
-        line_bot_api.reply_message(reply_token, TextSendMessage(text=reply_message))
+        image_message = ImageSendMessage(
+            original_content_url=linepay_image_url,
+            preview_image_url=linepay_image_url
+        )
+        line_bot_api.reply_message(reply_token, [text_message, image_message])
+
+    elif message_text == "選擇 郵局匯款":
+        # 傳送郵局匯款資訊
+        reply_message = TextSendMessage(
+            text=(
+                "🏦 **郵局匯款方式**\n\n"
+                "銀行代碼：700\n"
+                "帳號：0000023980362050\n\n"
+                "📤 完成匯款後，請回傳付款截圖，我們將在確認款項後提供限時有效的下載連結給您！\n\n"
+                "🌟 感謝您的支持，祝您有美好的一天！ 🎉"
+            )
+        )
+        line_bot_api.reply_message(reply_token, reply_message)
+
+if __name__ == "__main__":
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port)
 
 
 if __name__ == "__main__":
