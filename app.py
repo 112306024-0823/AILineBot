@@ -31,7 +31,7 @@ line_bot_api = LineBotApi(os.getenv('CHANNEL_ACCESS_TOKEN'))
 handler = WebhookHandler(os.getenv('CHANNEL_SECRET'))
 
 # 註冊 UploadHandler
-upload_handler = UploadHandler(upload_folder="uploads", line_bot_api=line_bot_api, folder_id=FOLDER_ID)
+upload_handler = Upload_Handler(upload_folder="uploads", line_bot_api=line_bot_api, folder_id=FOLDER_ID)
 app.register_blueprint(upload_handler.blueprint)
 
 
