@@ -136,6 +136,20 @@ def handle_text_message(event):
             reply_token,
             TextSendMessage(text="請點擊下方按鈕上傳檔案：", quick_reply=quick_reply)
         )
+    if message_text == "購買筆記":
+        reply_message = (
+            "📌 **付款方式：**\n"
+            "🏦 **郵局轉帳**\n"
+            "銀行代碼：700\n"
+            "帳號：0000023980362050\n\n"
+            "💚 **LINE Pay**\n"
+            "點擊以下連結進行付款：\n"
+            "🔗 [LINE Pay 付款連結]\n\n"
+            "📤 **完成付款後**，請回傳付款截圖，我們將提供限時有效的下載連結給您！"
+        )
+        # 將訊息回傳給使用者
+        line_bot_api.reply_message(reply_token, TextSendMessage(text=reply_message))
+
 
 if __name__ == "__main__":
     port = int(os.environ.get('PORT', 5000))
