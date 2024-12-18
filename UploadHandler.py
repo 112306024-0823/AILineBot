@@ -18,6 +18,7 @@ class UploadHandler:
         @self.blueprint.route("/upload", methods=["GET", "POST"])
         def upload():
             if request.method == "POST":
+                # 獲取表單資料
                 file = request.files.get("file")
                 subject = request.form.get("subject")
                 grade = request.form.get("grade")
@@ -52,10 +53,12 @@ class UploadHandler:
             return self.render_upload_form()
 
     def allowed_file(self, filename):
+        """檢查檔案是否符合允許的格式"""
         allowed_extensions = {"pdf", "png", "jpg", "jpeg", "doc", "docx"}
         return "." in filename and filename.rsplit(".", 1)[1].lower() in allowed_extensions
 
     def render_upload_form(self):
+        """返回上傳檔案的 HTML 表單頁面"""
         return '''
         <!doctype html>
         <html>

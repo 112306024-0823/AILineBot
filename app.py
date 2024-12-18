@@ -33,6 +33,12 @@ app = Flask(__name__)
 line_bot_api = LineBotApi(os.getenv('CHANNEL_ACCESS_TOKEN'))
 handler = WebhookHandler(os.getenv('CHANNEL_SECRET'))
 
+
+# 註冊 Blueprint
+upload_handler = UploadHandler(line_bot_api=line_bot_api)
+app.register_blueprint(upload_handler.blueprint)
+
+
 # 儲存使用者選擇的科目和年級
 user_selections = {}
 
