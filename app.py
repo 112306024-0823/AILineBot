@@ -11,6 +11,8 @@ from googleapiclient.http import MediaFileUpload
 import json
 from threading import Thread
 from UploadHandler import UploadHandler
+from utils import background_upload_and_save
+
 
 # 初始化 Google Drive 和 Firebase 配置
 google_drive_info = json.loads(os.getenv("GOOGLE_DRIVE_CREDENTIALS"))
@@ -64,22 +66,7 @@ def save_file_metadata(user_id, file_name, file_url, subject="", grade=""):
         print(f"儲存檔案元數據失敗：{e}")
 
 
-# 背景處理上傳和儲存操作
-def background_upload_and_save(user_id, file_name, file_path, subject, grade, folder_id, line_bot_api):
-    try:
-        print(f"開始處理檔案上傳：{file_name}, 科目：{subject}, 年級：{grade}")
-        file_url = upload_file_to_google_drive(file_path, file_name)
-        if file_url:
-            save_file_metadata(user_id, file_name, file_url, subject, grade)
-            line_bot_api.push_message(user_id, TextSendMessage(text=f"檔案 {file_name} 已成功上傳，狀態：審核中"))
-        else:
-            print(f"檔案 {file_name} 上傳失敗")
-    except Exception as e:
-        print(f"背景處理失敗：{e}")
-    finally:
-        if os.path.exists(file_path):
-            os.remove(file_path)
-            print(f"本地檔案已刪除：{file_path}")
+
 
 
 @app.route("/callback", methods=['POST'])
