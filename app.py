@@ -87,7 +87,16 @@ def handle_text_message(event):
     reply_token = event.reply_token
     message_text = event.message.text.strip()
 
-    if "購買筆記" in message_text:
+    if message_text == "我要上傳筆記":
+        quick_reply = QuickReply(items=[
+            QuickReplyButton(action=URIAction(label="點擊上傳檔案", uri=f"https://{request.host}/upload"))
+        ])
+        reply_message = TextSendMessage(
+            text="請點擊下方按鈕上傳檔案：", quick_reply=quick_reply
+        )
+        line_bot_api.reply_message(reply_token, reply_message)
+
+    elif "購買筆記" in message_text:
         # 建立 Quick Reply 提供付款選擇
         quick_reply = QuickReply(items=[
             QuickReplyButton(action=MessageAction(label="LINE Pay", text="選擇 LINE Pay")),
