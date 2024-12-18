@@ -10,8 +10,7 @@ from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 import json
 from threading import Thread
-from UploadHandler import UploadHandler
-from utils import background_upload_and_save
+import Upload_Handler
 
 
 # 初始化 Google Drive 和 Firebase 配置

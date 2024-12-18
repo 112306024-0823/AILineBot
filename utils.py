@@ -3,7 +3,7 @@ from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 from firebase_admin import firestore
 from flexmessage import create_upload_success_flex
-from UploadHandler import UploadHandler
+from Upload_Handler import UploadHandler
 
 def upload_file_to_google_drive(file_path, file_name, folder_id):
     service = build("drive", "v3")
