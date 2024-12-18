@@ -1,6 +1,7 @@
 from flask import Blueprint, render_template, request, jsonify
 from threading import Thread
 from utils import background_upload_and_save
+import os
 
 class UploadHandler:
     def __init__(self, upload_folder="uploads", line_bot_api=None, folder_id=None):
