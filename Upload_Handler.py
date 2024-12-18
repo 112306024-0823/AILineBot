@@ -23,8 +23,11 @@ class UploadHandler:
                 grade = request.form.get("grade")
                 user_id = request.form.get("user_id")  # 隱藏字段
 
-                if not subject or not grade or not user_id:
+                if not subject or not grade:
                     return jsonify({"status": "error", "message": "請填寫完整的資訊！"})
+                
+                if not user_id:
+                    return "無法獲取 user_id", 401
 
                 if file and self.allowed_file(file.filename):
                     file_path = os.path.join(self.upload_folder, file.filename)
