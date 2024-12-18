@@ -3,7 +3,7 @@ from flask import Blueprint, request, jsonify
 from threading import Thread
 from utils import background_upload_and_save
 
-class UploadHandler:
+class Upload_Handler:
     def __init__(self, upload_folder="uploads", line_bot_api=None, folder_id=None):
         self.upload_folder = upload_folder
         self.line_bot_api = line_bot_api
