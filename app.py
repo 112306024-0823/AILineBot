@@ -2,7 +2,7 @@ from flask import Flask, request, abort, jsonify,session
 from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
 
-from linebot.models import MessageEvent, TextMessage, TextSendMessage, QuickReply, QuickReplyButton, URIAction,ImageSendMessage,MessageAction
+from linebot.models import MessageEvent, TextMessage, TextSendMessage, QuickReply, QuickReplyButton, URIAction,ImageSendMessage,MessageAction,ImageMessage
 import os
 import firebase_admin
 from firebase_admin import credentials, firestore
@@ -137,6 +137,22 @@ def handle_text_message(event):
             )
         )
         line_bot_api.reply_message(reply_token, reply_message)
+
+
+@handler.add(MessageEvent, message=ImageMessage)
+def handle_image_message(event):
+    reply_token = event.reply_token
+
+    # 回覆用戶的確認消息
+    confirmation_message = TextSendMessage(
+        text=(
+            "✅ 已收到您的付款證明。\n\n"
+            "📤 我們將盡快確認款項，確認完成後會為您提供限時有效的下載連結。\n\n"
+            "🌟 感謝您的支持與信任，敬請期待！"
+        )
+    )
+    line_bot_api.reply_message(reply_token, confirmation_message)
+
 
 if __name__ == "__main__":
     port = int(os.environ.get('PORT', 5000))
