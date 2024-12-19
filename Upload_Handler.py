@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, jsonify, session
+from flask import Blueprint, render_template, request, jsonify
 from threading import Thread
 from utils import background_upload_and_save
 import os
@@ -21,8 +21,7 @@ class UploadHandler:
                 file = request.files.get("file")
                 subject = request.form.get("subject")
                 grade = request.form.get("grade")
-                #user_id = request.form.get("user_id")   隱藏字段
-                user_id = session.get("user_id")
+                user_id = request.form.get("user_id")   #隱藏字段
 
 
                 if not subject or not grade:
