@@ -84,6 +84,8 @@ def callback():
 @handler.add(MessageEvent, message=TextMessage)
 def handle_text_message(event):
     user_id = event.source.user_id
+    session['user_id'] = user_id  # 記錄到 session
+
     reply_token = event.reply_token
     message_text = event.message.text.strip()
 
