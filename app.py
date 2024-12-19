@@ -12,6 +12,7 @@ from googleapiclient.http import MediaFileUpload
 import json
 from threading import Thread
 from Upload_Handler import UploadHandler
+from flask import session
 
 
 # 初始化 Google Drive 和 Firebase 配置
