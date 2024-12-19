@@ -21,7 +21,9 @@ class UploadHandler:
                 file = request.files.get("file")
                 subject = request.form.get("subject")
                 grade = request.form.get("grade")
-                user_id = request.form.get("user_id")   #隱藏字段
+                #user_id = request.form.get("user_id")   隱藏字段
+                user_id = session.get("user_id")
+
 
                 if not subject or not grade:
                     return jsonify({"status": "error", "message": "請填寫完整的資訊！"})
