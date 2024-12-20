@@ -60,12 +60,27 @@ def save_file_metadata(user_id, file_name, file_url, subject="", grade=""):
             "subject": subject,
             "grade": grade,
             "status": "審核中"
+           # "uploaded_at": firestore.SERVER_TIMESTAMP
+
         })
         print(f"檔案元數據已儲存到 Firebase：{file_name}")
     except Exception as e:
         print(f"儲存檔案元數據失敗：{e}")
 
 
+def save_user_to_firestore(user_id):
+    try:
+        user_ref = db.collection("users").document(user_id)
+        user = user_ref.get()
+        if not user.exists:
+            user_ref.set({
+                "created_at": firestore.SERVER_TIMESTAMP
+            })
+            app.logger.info(f"新增用戶：{user_id}")
+        else:
+            app.logger.info(f"用戶已存在：{user_id}")
+    except Exception as e:
+        print(f"保存用戶失敗：{e}")
 
 
 
@@ -84,6 +99,8 @@ def callback():
 @handler.add(MessageEvent, message=TextMessage)
 def handle_text_message(event):
     user_id = event.source.user_id
+    save_user_to_firestore(user_id)
+
     reply_token = event.reply_token
     message_text = event.message.text.strip()
 
