@@ -3,6 +3,8 @@ from werkzeug.utils import secure_filename
 from threading import Thread
 from utils import background_upload_and_save
 import os
+import json
+
 
 class UploadHandler:
     ALLOWED_EXTENSIONS = {"pdf", "png", "jpg", "jpeg", "doc", "docx"}
