@@ -11,8 +11,13 @@
         <h1>上傳檔案</h1>
         <form method="post" enctype="multipart/form-data">
 
+
+            <label for="username">用戶暱稱</label>
+            <input type="text" id="username" name="username" placeholder="請輸入您的暱稱" required>
+            <span class="help-text">* 請填寫用戶暱稱</span>
+
+
             <label for="subject">科目名稱</label>
-            <input type="hidden" name="user_id" value="{{ user_id }}">
             <input type="text" id="subject" name="subject" placeholder="例如：統計學、經濟學" required>
             <span class="help-text">* 可自行填寫科目名稱</span>
             

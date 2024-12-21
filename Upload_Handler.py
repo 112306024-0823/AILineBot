@@ -21,13 +21,14 @@ class UploadHandler:
                 file = request.files.get("file")
                 subject = request.form.get("subject")
                 grade = request.form.get("grade")
-                user_id = request.form.get("user_id")   #隱藏字段
+                #user_id = request.form.get("user_id")   #隱藏字段
+                username = request.form.get('username') 
 
 
                 if not subject or not grade:
                     return jsonify({"status": "error", "message": "請填寫完整的資訊！"})
                 
-                if not user_id:
+                if not username:
                     return "無法獲取 user_id", 401
 
                 if file and self.allowed_file(file.filename):
@@ -36,7 +37,7 @@ class UploadHandler:
 
                     # 後台處理檔案上傳
                     Thread(target=background_upload_and_save, args=(
-                        user_id, file.filename, file_path, subject, grade, self.folder_id, self.line_bot_api
+                        username, file.filename, file_path, subject, grade, self.folder_id, self.line_bot_api
                     )).start()
 
                     return '''
