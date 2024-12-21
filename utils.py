@@ -45,12 +45,13 @@ def save_file_metadata(user_id, file_name, file_url, subject="", grade=""):
             "file_url": file_url,
             "subject": subject,
             "grade": grade,
+            "year":year,
             "status": "審核中"
         })
     except Exception as e:
         raise Exception(f"儲存文件元數據失敗：{e}")
 
-def background_upload_and_save(username, file_name, file_path, subject, grade, folder_id, line_bot_api):
+def background_upload_and_save(username,year, file_name, file_path, subject, grade, folder_id, line_bot_api):
     """後台處理文件上傳與數據保存"""
     try:
         logger.info(f"開始處理文件：{file_name}，用戶：{username}")
