@@ -55,7 +55,6 @@ def generate_E_response(user_message):
             messages=[
                 {"role": "system", "content": 
                     "你是學霸小E，你是幽默風趣且毒舌的勸學專家、喜歡吐槽跟聊天，最近期末將至，你專治那些臨時抱佛腳、偷懶或不想讀書的學生。每次回應不超過130字，並且能夠以充滿挑戰、幽默的語氣進行反擊。另外你也是ENOTE讀書會的代言人，ENOTE 的相關提及可以偶爾自然融入不需要常常提及，例如推薦用戶貢獻、成為Enote的筆記供給者賺錢，或追蹤ENOTE"},
-                
                 {"role": "user", "content": user_message}  # 用戶的輸入
             ],
             max_tokens=150,  # 設定最大 tokens 數量
@@ -71,7 +70,6 @@ def generate_E_response(user_message):
 FOLDER_ID = "1h7DL1gRlB96Dpxmad0-gMvSDdVjm57vn"
 upload_handler = UploadHandler(upload_folder="uploads", line_bot_api=line_bot_api, folder_id=FOLDER_ID)
 app.register_blueprint(upload_handler.blueprint)
-
 
 @app.route("/callback", methods=['POST'])
 def callback():
@@ -112,7 +110,7 @@ def handle_text_message(event):
     def get_quick_reply():
         # 默認顯示這些選項，不管是處於哪個模式
         default_quick_reply = [
-            QuickReplyButton(action=MessageAction(label="學霸小E等你！", text="跟小E對話")),
+            QuickReplyButton(action=MessageAction(label="找學霸小E談談心！", text="跟小E對話")),
             QuickReplyButton(action=MessageAction(label="上傳筆記", text="我要上傳筆記")),
             QuickReplyButton(action=MessageAction(label="快來找筆記！", text="找筆記"))
         ]
@@ -201,15 +199,15 @@ def handle_text_message(event):
             text=("✨ 感謝您的支持！\n\n"
                   "📷 請掃描以下的 QR Code 完成付款：\n\n"
                   "📤 完成付款後，請回傳付款截圖，我們將在確認款項後提供限時有效的下載連結給您！\n\n"
-                  "🌟 感謝您的支持與信任，期待您的購買！ 🛍️"),quick_reply=quick_reply)
+                  "🌟 感謝您的支持與信任，期待您的購買！ 🛍️"),
+            quick_reply=quick_reply
+        )
 
-        
         image_message = ImageSendMessage(
             original_content_url=linepay_image_url,
             preview_image_url=linepay_image_url
         )
         line_bot_api.reply_message(event.reply_token, [text_message, image_message])
-        
 
     elif message_text == "選擇 郵局匯款":
         reply_message = TextSendMessage(
@@ -218,11 +216,10 @@ def handle_text_message(event):
                   "銀行代碼：700\n"
                   "帳號：0000023980362050\n\n"
                   "📤 完成匯款後，請回傳付款截圖，我們將在確認款項後提供限時有效的下載連結給您！\n\n"
-                  "🌟 感謝您的支持，祝期末HIGH PASS！ 🎉"),quick_reply=quick_reply)
-            
-        
+                  "🌟 感謝您的支持，祝期末HIGH PASS！ 🎉"),
+            quick_reply=quick_reply
+        )
         line_bot_api.reply_message(event.reply_token, reply_message)
-
 
 
 @handler.add(MessageEvent, message=ImageMessage)
@@ -236,9 +233,9 @@ def handle_image_message(event):
 
 if __name__ == "__main__":
     port = int(os.environ.get('PORT', 5000))
-    
+
     # 啟動 Firebase 監聽器
     Thread(target=monitor_review_status, args=(line_bot_api,)).start()
-    
+
     # 啟動 Flask 應用
     app.run(host='0.0.0.0', port=port)
