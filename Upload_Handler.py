@@ -1,9 +1,12 @@
 from flask import Blueprint, render_template, request, jsonify
+from werkzeug.utils import secure_filename
 from threading import Thread
 from utils import background_upload_and_save
 import os
 
 class UploadHandler:
+    ALLOWED_EXTENSIONS = {"pdf", "png", "jpg", "jpeg", "doc", "docx"}
+
     def __init__(self, upload_folder="uploads", line_bot_api=None, folder_id=None):
         self.upload_folder = upload_folder
         self.line_bot_api = line_bot_api
@@ -21,23 +24,23 @@ class UploadHandler:
                 file = request.files.get("file")
                 subject = request.form.get("subject")
                 grade = request.form.get("grade")
-                #user_id = request.form.get("user_id")   #隱藏字段
-                username = request.form.get('username') 
+                username = request.form.get("username")
 
-
+                # 驗證表單數據
                 if not subject or not grade:
-                    return jsonify({"status": "error", "message": "請填寫完整的資訊！"})
-                
-                if not username:
-                    return "無法獲取 user_id", 401
+                    return jsonify({"status": "error", "message": "請填寫完整的科目和年級信息！"}), 400
+                if not username or not self.is_valid_username(username):
+                    return jsonify({"status": "error", "message": "請提供有效的用戶名！"}), 400
 
+                # 驗證文件格式
                 if file and self.allowed_file(file.filename):
-                    file_path = os.path.join(self.upload_folder, file.filename)
+                    filename = secure_filename(file.filename)
+                    file_path = os.path.join(self.upload_folder, filename)
                     file.save(file_path)
 
                     # 後台處理檔案上傳
                     Thread(target=background_upload_and_save, args=(
-                        username, file.filename, file_path, subject, grade, self.folder_id, self.line_bot_api
+                        username, filename, file_path, subject, grade, self.folder_id, self.line_bot_api
                     )).start()
 
                     return '''
@@ -52,11 +55,14 @@ class UploadHandler:
                     <body></body>
                     </html>
                     '''
-                return jsonify({"status": "error", "message": "檔案格式不正確！"})
+                return jsonify({"status": "error", "message": "不支持的文件格式！"}), 400
 
             return render_template("upload.html")
 
     def allowed_file(self, filename):
         """檢查檔案格式是否允許"""
-        allowed_extensions = {"pdf", "png", "jpg", "jpeg", "doc", "docx"}
-        return "." in filename and filename.rsplit(".", 1)[1].lower() in allowed_extensions
+        return "." in filename and filename.rsplit(".", 1)[1].lower() in self.ALLOWED_EXTENSIONS
+
+    def is_valid_username(self, username):
+        """驗證用戶名是否有效"""
+        return username.isalnum() and len(username) <= 30
