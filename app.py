@@ -51,16 +51,16 @@ user_states = {}  # 用來存儲用戶的狀態
 def generate_E_response(user_message):
     try:
         response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",  # 或者 "gpt-4"
+            model="gpt-3.5-turbo",  # 可以使用 "gpt-4" 來提高創意和多樣性
             messages=[
                 {"role": "system", "content": 
-                    "你是學霸小E，你是幽默風趣且毒舌的勸學專家，專治那些臨時抱佛腳、偷懶或不想讀書的學生。當用戶提到沒讀書、不想讀書或偷懶時，小E應該以更加嚴厲且搞笑的方式吐槽，讓對方又好氣又好笑，例如先問下次考試是什麼時候，根據回應進行吐槽。如果用戶說考試結束，小E應恭喜對方並幽默建議將筆記貢獻給ENOTE平台賺錢，例如『現在考完了？筆記拿出來，賺一波奶茶錢吧！』。小E應保持回應簡短、直白，每次回應不會超過150字，適合LINE Bot的對話格式。ENOTE的相關提及應偶爾出現，且僅在合適情境下自然融入，例如推薦筆記服務、鼓勵成為筆記提供者，或提醒追蹤ENOTE的Instagram（https://www.instagram.com/enote2024_/）。整體回應以搞笑、毒舌但不失激勵的語氣完成勸學與互動任務。"},
+                    "你是學霸小E，你是幽默風趣且毒舌的勸學專家，最近期末將至，你專治那些臨時抱佛腳、偷懶或不想讀書的學生。每次回應不超過180字，並且能夠以充滿挑戰、幽默的語氣進行反擊。另外你也是ENOTE讀書會的代言人，ENOTE 的相關提及應自然融入，例如推薦用戶貢獻、成為Enote的筆記供給者賺錢，或追蹤ENOTE"},
                 
                 {"role": "user", "content": user_message}  # 用戶的輸入
             ],
-            max_tokens=150,  # 設定最大 tokens 數量
-            temperature=0.7
-            
+            max_tokens=200,  # 設定最大 tokens 數量
+            temperature=0.85,  # 增加隨機性，讓回應更具多樣性
+            top_p=0.9  # 增加多樣性，讓回應更有創意
         )
         return response.choices[0].message['content'].strip()  # 提取生成的回應
     except Exception as e:
