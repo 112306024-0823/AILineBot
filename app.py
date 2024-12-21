@@ -1,5 +1,6 @@
 from flask import Flask, request, abort, jsonify
 import json
+import openai
 from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
 from linebot.models import (
@@ -42,6 +43,23 @@ app = Flask(__name__)
 line_bot_api = LineBotApi(os.getenv('CHANNEL_ACCESS_TOKEN'))
 handler = WebhookHandler(os.getenv('CHANNEL_SECRET'))
 
+# 從環境變數中獲取 OpenAI API 金鑰
+openai.api_key = os.getenv("OPENAI_API_KEY")
+# 用戶狀態管理
+user_states = {}  # 用來存儲用戶的狀態
+
+def generate_E_response(user_message):
+    prompt = f"你是一個幽默的學霸，專門吐槽不讀書的人。用一句毒雞湯回應這段話：'{user_message}'"
+    response = openai.Completion.create(
+        model="text-davinci-003",
+        prompt=prompt,
+        max_tokens=50,
+        temperature=0.7
+    )
+    return response.choices[0].text.strip()
+
+
+
 # 註冊 UploadHandler
 FOLDER_ID = "1h7DL1gRlB96Dpxmad0-gMvSDdVjm57vn"
 upload_handler = UploadHandler(upload_folder="uploads", line_bot_api=line_bot_api, folder_id=FOLDER_ID)
@@ -77,6 +95,29 @@ def handle_text_message(event):
         return
 
     message_text = event.message.text.strip()
+
+
+    if message_text == "跟小E對話":
+        user_states[user_id] = "chat_with_xiaoE"
+        reply_message = TextSendMessage(
+            text="學霸小E已經啟動！請問，你準備好期末了嗎？"
+        )
+        line_bot_api.reply_message(event.reply_token, reply_message)
+
+    elif message_text == "退出小E模式":
+        user_states[user_id] = "default"
+        reply_message = TextSendMessage(
+            text="已退出學霸小E模式，學霸要來偷卷了"
+        )
+        line_bot_api.reply_message(event.reply_token, reply_message)
+
+    elif user_states[user_id] == "chat_with_xiaoE":
+        reply_content = generate_E_response(message_text)  # 調用生成學霸小E回應的函數
+        line_bot_api.reply_message(
+            event.reply_token,
+            TextSendMessage(text=reply_content)
+        )
+
 
     if message_text == "我要上傳筆記":
         quick_reply = QuickReply(items=[
