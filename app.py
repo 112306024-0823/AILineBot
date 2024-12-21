@@ -47,15 +47,22 @@ openai.api_key = os.getenv("OPENAI_API_KEY")
 # 用戶狀態管理
 user_states = {}  # 用來存儲用戶的狀態
 
+# 更新生成學霸小E回應的函數
 def generate_E_response(user_message):
-    prompt = f"你是一個幽默的學霸，專門吐槽不讀書的人。用一句毒雞湯回應這段話：'{user_message}'"
-    response = openai.Completion.create(
-        model="gpt-3.5-turbo",
-        prompt=prompt,
-        max_tokens=50,
-        temperature=0.7
-    )
-    return response.choices[0].text.strip()
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",  # 或者 "gpt-4"
+            messages=[
+                {"role": "system", "content": "你是一個幽默的學霸，專門吐槽不讀書的人。"},
+                {"role": "user", "content": user_message}  # 用戶的輸入
+            ],
+            max_tokens=50,
+            temperature=0.7
+        )
+        return response.choices[0].message['content'].strip()  # 提取生成的回應
+    except Exception as e:
+        print(f"Error: {e}")
+        return "抱歉，我無法理解您的問題，請稍後再試。"
 
 # 註冊 UploadHandler
 FOLDER_ID = "1h7DL1gRlB96Dpxmad0-gMvSDdVjm57vn"
@@ -91,18 +98,13 @@ def handle_text_message(event):
         )
         return
     
-        # 設置用戶的初始狀態，如果尚未存在
+    message_text = event.message.text.strip()
+
+    # 設置用戶的初始狀態，如果尚未存在
     if user_id not in user_states:
         user_states[user_id] = "default"  # 設置初始狀態為 'default'
 
-
-    message_text = event.message.text.strip()
-
-    # 初始設置用戶狀態
-    if user_id not in user_states:
-        user_states[user_id] = "default"
-
-    # 快速回覆的邏輯
+    # 快速回覆選項的邏輯
     def get_quick_reply():
         if user_states[user_id] == "chat_with_xiaoE":
             return QuickReply(items=[
@@ -120,7 +122,7 @@ def handle_text_message(event):
         user_states[user_id] = "chat_with_xiaoE"
         reply_message = TextSendMessage(
             text="學霸小E已經啟動！請問，你準備好期末了嗎？",
-            quick_reply=get_quick_reply()  # 根據狀態設置快速回覆選項
+            quick_reply=get_quick_reply()
         )
         line_bot_api.reply_message(event.reply_token, reply_message)
 
@@ -129,7 +131,7 @@ def handle_text_message(event):
         user_states[user_id] = "default"
         reply_message = TextSendMessage(
             text="已退出學霸小E模式，學霸要來偷卷了",
-            quick_reply=get_quick_reply()  # 根據狀態設置快速回覆選項
+            quick_reply=get_quick_reply()
         )
         line_bot_api.reply_message(event.reply_token, reply_message)
 
@@ -141,7 +143,7 @@ def handle_text_message(event):
             TextSendMessage(text=reply_content)
         )
 
-    # 其他選項處理
+    # 處理其他指令
     elif message_text == "我要上傳筆記":
         quick_reply = QuickReply(items=[QuickReplyButton(action=URIAction(label="點擊上傳檔案", uri=f"https://{request.host}/upload?user_id={user_id}"))])
         reply_message = TextSendMessage(
@@ -180,12 +182,10 @@ def handle_text_message(event):
     elif message_text == "選擇 LINE Pay":
         linepay_image_url = f"https://{request.host}/static/images/linepay_qrcode.jpg"
         text_message = TextSendMessage(
-            text=(
-                "✨ 感謝您的支持！\n\n"
-                "📷 請掃描以下的 QR Code 完成付款：\n\n"
-                "📤 完成付款後，請回傳付款截圖，我們將在確認款項後提供限時有效的下載連結給您！\n\n"
-                "🌟 感謝您的支持與信任，期待您的購買！ 🛍️"
-            )
+            text=("✨ 感謝您的支持！\n\n"
+                  "📷 請掃描以下的 QR Code 完成付款：\n\n"
+                  "📤 完成付款後，請回傳付款截圖，我們將在確認款項後提供限時有效的下載連結給您！\n\n"
+                  "🌟 感謝您的支持與信任，期待您的購買！ 🛍️")
         )
         image_message = ImageSendMessage(
             original_content_url=linepay_image_url,
@@ -195,14 +195,12 @@ def handle_text_message(event):
 
     elif message_text == "選擇 郵局匯款":
         reply_message = TextSendMessage(
-            text=(
-                "✨ 感謝您的支持！\n\n"
-                "🏦郵局匯款\n\n"
-                "銀行代碼：700\n"
-                "帳號：0000023980362050\n\n"
-                "📤 完成匯款後，請回傳付款截圖，我們將在確認款項後提供限時有效的下載連結給您！\n\n"
-                "🌟 感謝您的支持，祝期末HIGH PASS！ 🎉"
-            )
+            text=("✨ 感謝您的支持！\n\n"
+                  "🏦郵局匯款\n\n"
+                  "銀行代碼：700\n"
+                  "帳號：0000023980362050\n\n"
+                  "📤 完成匯款後，請回傳付款截圖，我們將在確認款項後提供限時有效的下載連結給您！\n\n"
+                  "🌟 感謝您的支持，祝期末HIGH PASS！ 🎉")
         )
         line_bot_api.reply_message(event.reply_token, reply_message)
 
