@@ -52,12 +52,12 @@ def save_file_metadata(user_id, file_name, file_url, subject="", grade="",year="
     except Exception as e:
         raise Exception(f"儲存文件元數據失敗：{e}")
 
-def background_upload_and_save(username, file_name, file_path, subject, grade, folder_id, line_bot_api):
+def background_upload_and_save(username,year, file_name, file_path, subject, grade, folder_id, line_bot_api):
     """後台處理文件上傳與數據保存"""
     try:
         logger.info(f"開始處理文件：{file_name}，用戶：{username}")
         file_url = upload_file_to_google_drive(file_path, file_name, folder_id)
-        save_file_metadata(username, file_name, file_url, subject, grade)
+        save_file_metadata(username,year, file_name, file_url, subject, grade)
         line_bot_api.push_message(
             username,
             TextSendMessage(text=f"✅ 您的檔案已成功上傳！")
