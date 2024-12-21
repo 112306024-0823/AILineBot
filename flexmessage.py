@@ -1,8 +1,10 @@
 from linebot.models import FlexSendMessage
-from flask import url_for
+from flask import url_for, request
 
 
 def create_upload_success_flex(file_name, subject, grade):
+    image_url = url_for('static', filename='images/Enote_Logo.png', _external=True)
+
     """建立 Flex Message 用於通知檔案上傳成功"""
     return FlexSendMessage(
         alt_text="檔案上傳成功通知",
@@ -10,7 +12,7 @@ def create_upload_success_flex(file_name, subject, grade):
             "type": "bubble",
             "hero": {
                 "type": "image",
-                "url": "https://{request.host}/static/images/Enote_Logo.png",
+                "url": image_url,  # 使用生成的圖片 URL
                 "size": "full",
                 "aspectRatio": "20:10",
                 "aspectMode": "cover"
@@ -77,6 +79,8 @@ def create_upload_success_flex(file_name, subject, grade):
     )
 
 def create_review_success_flex(file_name, subject, grade, file_url):
+    image_url = url_for('static', filename='images/Enote_Logo.png', _external=True)
+
     """建立 Flex Message 用於通知審核成功"""
     return FlexSendMessage(
         alt_text="審核成功通知",
@@ -84,7 +88,7 @@ def create_review_success_flex(file_name, subject, grade, file_url):
             "type": "bubble",
             "hero": {
                 "type": "image",
-                "url": "https://{request.host}/static/images/Enote_Logo.png",
+                "url": image_url,  # 使用生成的圖片 URL
                 "size": "full",
                 "aspectRatio": "20:10",
                 "aspectMode": "cover"
