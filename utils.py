@@ -69,7 +69,9 @@ def background_upload_and_save(user_id, year, file_name, file_path, subject, gra
         # 通知用戶上傳成功
         line_bot_api.push_message(
             user_id,
-            TextSendMessage(text=f"✅ 您的檔案已成功上傳！檔案連結將在審核後提供。")
+            TextSendMessage(
+                text="✅ 您的檔案已成功上傳！筆記將在審核成功後由Enote上架！成功上架後會再通知您！"
+            )
         )
         logger.info(f"文件處理成功：{file_name}，下載連結：{file_url}")
     except Exception as e:

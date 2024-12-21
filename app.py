@@ -11,6 +11,9 @@ from utils import check_environment_variables
 import os
 import firebase_admin
 from firebase_admin import credentials, firestore
+from threading import Thread
+from review_monitor import monitor_review_status  # 假設監聽邏輯放在 review_monitor.py
+
 
 # 初始化環境變數檢查
 check_environment_variables()
@@ -153,4 +156,10 @@ def handle_image_message(event):
 
 if __name__ == "__main__":
     port = int(os.environ.get('PORT', 5000))
+    
+    # 啟動 Firebase 監聽器
+    Thread(target=monitor_review_status, args=(line_bot_api,)).start()
+    
+    # 啟動 Flask 應用
     app.run(host='0.0.0.0', port=port)
+
