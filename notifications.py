@@ -1,3 +1,5 @@
+from linebot.models import FlexSendMessage
+
 class NotificationHandler:
     """用於處理審核通知的類別"""
 
