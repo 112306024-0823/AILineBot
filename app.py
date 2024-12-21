@@ -123,19 +123,20 @@ def handle_text_message(event):
     elif message_text == "選擇 LINE Pay":
 
         # 提示用戶 LINE Pay 付款
-        reply_message = TextSendMessage(
-            text=(
+        reply_message = [
+            TextSendMessage(
+                text=(
                     "✨ 感謝您的支持！\n\n"
                     "📷 請掃描以下的 QR Code 完成付款：\n\n"
                     "📤 完成匯款後，請回傳付款截圖，我們將在確認款項後提供限時有效的下載連結給您！\n\n"
                     "🌟 感謝您的支持，祝期末HIGH PASS！ 🎉"
-             )
-        )
-        ImageSendMessage(
-            original_content_url=linepay_image_url,
-            preview_image_url=linepay_image_url
-        )
-
+                )
+            ),
+            ImageSendMessage(
+                original_content_url=linepay_image_url,
+                preview_image_url=linepay_image_url
+            )
+        ]
         line_bot_api.reply_message(event.reply_token, reply_message)
 
     elif message_text == "選擇 郵局匯款":
