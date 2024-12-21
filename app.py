@@ -91,6 +91,7 @@ def callback():
     return 'OK'
 
 
+# 處理用戶訊息的邏輯
 @handler.add(MessageEvent, message=TextMessage)
 def handle_text_message(event):
     user_id = getattr(event.source, 'user_id', None)
@@ -109,16 +110,28 @@ def handle_text_message(event):
 
     # 快速回覆選項的邏輯
     def get_quick_reply():
+        # 默認顯示這些選項，不管是處於哪個模式
+        default_quick_reply = [
+            QuickReplyButton(action=MessageAction(label="學霸小E等你！", text="跟小E對話")),
+            QuickReplyButton(action=MessageAction(label="上傳筆記", text="我要上傳筆記")),
+            QuickReplyButton(action=MessageAction(label="快來找筆記！", text="找筆記"))
+        ]
+
         if user_states[user_id] == "chat_with_xiaoE":
+            # 在學霸小E對話模式下，顯示「退出小E對話」選項
             return QuickReply(items=[
-                QuickReplyButton(action=MessageAction(label="退出小E對話", text="退出小E模式"))
-            ])
-        else:
+                QuickReplyButton(action=MessageAction(label="小E，別再打擊我了掰", text="退出小E模式"))
+            ] + default_quick_reply)
+
+        elif user_states[user_id] == "buy_note":
+            # 購買筆記模式，顯示付款方式選項（LINE Pay 或郵局匯款）
             return QuickReply(items=[
-                QuickReplyButton(action=MessageAction(label="與學霸小E對話", text="跟小E對話")),
-                QuickReplyButton(action=MessageAction(label="上傳筆記", text="我要上傳筆記")),
-                QuickReplyButton(action=MessageAction(label="購買筆記", text="購買筆記"))
-            ])
+                QuickReplyButton(action=MessageAction(label="LINE Pay", text="選擇 LINE Pay")),
+                QuickReplyButton(action=MessageAction(label="郵局匯款", text="選擇 郵局匯款"))
+            ] + default_quick_reply)
+
+        # 默認返回基本選項（即不跟小E對話的模式）
+        return QuickReply(items=default_quick_reply)
 
     # 進入小E對話模式
     if message_text == "跟小E對話":
@@ -143,7 +156,7 @@ def handle_text_message(event):
         reply_content = generate_E_response(message_text)  # 調用生成學霸小E回應的函數
         line_bot_api.reply_message(
             event.reply_token,
-            TextSendMessage(text=reply_content)
+            TextSendMessage(text=reply_content, quick_reply=get_quick_reply())  # 保持快速回覆按鈕
         )
 
     # 處理其他指令
