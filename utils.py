@@ -1,8 +1,13 @@
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
+from linebot.models import TextSendMessage
 import os
 import json
+import logging
+
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
 
 def check_environment_variables():
     """檢查必要的環境變數是否已設置"""
@@ -44,3 +49,21 @@ def save_file_metadata(user_id, file_name, file_url, subject="", grade=""):
         })
     except Exception as e:
         raise Exception(f"儲存文件元數據失敗：{e}")
+
+def background_upload_and_save(username, file_name, file_path, subject, grade, folder_id, line_bot_api):
+    """後台處理文件上傳與數據保存"""
+    try:
+        logger.info(f"開始處理文件：{file_name}，用戶：{username}")
+        file_url = upload_file_to_google_drive(file_path, file_name, folder_id)
+        save_file_metadata(username, file_name, file_url, subject, grade)
+        line_bot_api.push_message(
+            username,
+            TextSendMessage(text=f"✅ 您的檔案已成功上傳！")
+        )
+        logger.info(f"文件處理成功，下載連結：{file_url}")
+    except Exception as e:
+        logger.error(f"文件處理失敗：{e}")
+        line_bot_api.push_message(
+            username,
+            TextSendMessage(text="❌ 文件處理失敗，請稍後再試。")
+        )
