@@ -14,7 +14,6 @@ from firebase_admin import credentials, firestore
 
 # 初始化環境變數檢查
 check_environment_variables()
-linepay_image_url = f"https://{request.host}/static/images/linepay_qrcode.jpg"
 
 NOTES_PRICING = {
     "A01": 150,
@@ -121,23 +120,21 @@ def handle_text_message(event):
 
 
     elif message_text == "選擇 LINE Pay":
-
-        # 提示用戶 LINE Pay 付款
-        reply_message = [
-            TextSendMessage(
+         # 傳送 LINE Pay 的 QR Code 圖片和訊息
+            linepay_image_url = f"https://{request.host}/static/images/linepay_qrcode.jpg"
+            text_message = TextSendMessage(
                 text=(
                     "✨ 感謝您的支持！\n\n"
                     "📷 請掃描以下的 QR Code 完成付款：\n\n"
-                    "📤 完成匯款後，請回傳付款截圖，我們將在確認款項後提供限時有效的下載連結給您！\n\n"
-                    "🌟 感謝您的支持，祝期末HIGH PASS！ 🎉"
+                    "📤 完成付款後，請回傳付款截圖，我們將在確認款項後提供限時有效的下載連結給您！\n\n"
+                    "🌟 感謝您的支持與信任，期待您的購買！ 🛍️"
                 )
-            ),
-            ImageSendMessage(
+            )
+            image_message = ImageSendMessage(
                 original_content_url=linepay_image_url,
                 preview_image_url=linepay_image_url
             )
-        ]
-        line_bot_api.reply_message(event.reply_token, reply_message)
+            line_bot_api.reply_message(event.reply_token, [text_message, image_message])
 
     elif message_text == "選擇 郵局匯款":
         # 提示用戶郵局匯款
