@@ -12,12 +12,17 @@ def monitor_review_status(line_bot_api):
         for change in changes:
             if change.type.name == "MODIFIED":  # 當資料被修改時觸發
                 note = change.document.to_dict()
+                print(f"更新的文件內容：{note}")
+
                 user_id = note.get("user_id")
                 file_name = note.get("file_name")
                 subject = note.get("subject", "未知科目")
                 grade = note.get("grade", "未知年級")
                 status = note.get("status")
+                print(f"更新的文件內容：{note}")
+
                 reason = note.get("reason", "未提供原因")
+
 
                 if status == "上架成功":
                     send_review_success_notification(line_bot_api, user_id, file_name, subject, grade, note.get("file_url"))
