@@ -13,23 +13,21 @@
         <!-- 注意文字 -->
         <div class="notice-box">
             <p>
-                <strong>⚠️為確保筆記內容能合法且順利地上架，我們特別提醒您：</strong>
+                <strong>📚✨ 為了更了解市場需求，我們目前正針對大學生、研究所學生展開市場測試，希望您能協助分享準備考試、上課整理的筆記，讓這些優質內容幫助更多學生。</strong>
+            </p>
+            <p>
+                <strong>⚠️ 另為確保筆記內容能合法且順利地上架，我們特別提醒您：</strong>
             </p>
             <ul>
-                <li>📌若筆記中包含直接抄錄或複製補習班、學校教材或講義的內容，可能涉及版權問題，建議以個人整理與歸納為主。</li>
+                <li>📌 若筆記中包含直接抄錄或複製補習班、學校教材或講義的內容，可能涉及版權問題，建議以個人整理與歸納為主。</li>
             </ul>
             <p>
-                <strong>📜提交筆記即表示您同意授權ENOTE團隊使用並上架您所提供的筆記內容。</strong>
+                <strong>📜 提交筆記即表示您同意授權 ENOTE 團隊使用並上架您所提供的筆記內容。</strong>
             </p>
         </div>
-        
 
+        <!-- 上傳表單 -->
         <form method="post" enctype="multipart/form-data">
-
-
-            <label for="username">LINE用戶名</label>
-            <input type="text" id="username" name="username" placeholder="請輸入您的LINE用戶名" required>
-
             <label for="grade">選擇年級</label>
             <select id="grade" name="grade" required>
                 <option value="" disabled selected>請選擇年級</option>
@@ -37,9 +35,9 @@
                 <option value="大二">大二</option>
                 <option value="大三">大三</option>
                 <option value="大四">大四</option>
-                <option value="研一">研究生</option>
-                <option value="研二">研究生</option>
-                <option value="其他">研究生</option>
+                <option value="研究生">研究生</option>
+                <option value="研究生">其他</option>
+
             </select>
 
             <label for="subject">科目名稱_章節名稱</label>
@@ -48,7 +46,7 @@
             
             <label for="year">筆記撰寫年份</label>
             <select id="year" name="year" required>
-                <option value="" disabled selected>請選擇年級</option>
+                <option value="" disabled selected>請選擇年份</option>
                 <option value="113年">113年</option>
                 <option value="112年">112年</option>
                 <option value="111年">111年</option>
@@ -57,10 +55,8 @@
                 <option value="108年">108年</option>
             </select>
 
-            
             <label for="file">選擇檔案</label>
-            <span class="help-text">檔案形式支援: pdf,png,jpg</span>
-
+            <span class="help-text">檔案形式支援: pdf, png, jpg, jpeg, doc, docx</span>
             <input type="file" id="file" name="file" accept=".pdf,.png,.jpg,.jpeg,.doc,.docx" required>
             
             <button type="submit">上傳</button>

@@ -7,7 +7,7 @@ from linebot.models import (
     URIAction, ImageSendMessage, MessageAction, ImageMessage
 )
 from Upload_Handler import UploadHandler
-from utils import upload_file_to_google_drive, check_environment_variables, save_file_metadata
+from utils import check_environment_variables
 import os
 import firebase_admin
 from firebase_admin import credentials, firestore
@@ -22,7 +22,6 @@ NOTES_PRICING = {
     "A04": 50,
     "A05": 50
 }
-
 
 # 初始化 Firebase
 try:
@@ -78,7 +77,7 @@ def handle_text_message(event):
 
     if message_text == "我要上傳筆記":
         quick_reply = QuickReply(items=[
-            QuickReplyButton(action=URIAction(label="點擊上傳檔案", uri=f"https://{request.host}/upload"))
+            QuickReplyButton(action=URIAction(label="點擊上傳檔案", uri=f"https://{request.host}/upload?user_id={user_id}"))
         ])
         reply_message = TextSendMessage(
             text="請點擊下方按鈕上傳檔案：", quick_reply=quick_reply
@@ -87,8 +86,6 @@ def handle_text_message(event):
 
     elif message_text.startswith("購買筆記"):
         import re
-
-        # 使用正則表達式提取筆記編號
         match = re.match(r"購買筆記\s*(A\d{2})", message_text)
         if not match:
             line_bot_api.reply_message(
@@ -97,12 +94,9 @@ def handle_text_message(event):
             )
             return
 
-        # 提取到的筆記編號
         note_code = match.group(1)
         if note_code in NOTES_PRICING:
             price = NOTES_PRICING[note_code]
-
-            # 回應用戶價格與付款選項
             quick_reply = QuickReply(items=[
                 QuickReplyButton(action=MessageAction(label="LINE Pay", text="選擇 LINE Pay")),
                 QuickReplyButton(action=MessageAction(label="郵局匯款", text="選擇 郵局匯款"))
@@ -118,26 +112,23 @@ def handle_text_message(event):
                 TextSendMessage(text="❌ 未找到該筆記編號，請確認後重新輸入。")
             )
 
-
     elif message_text == "選擇 LINE Pay":
-         # 傳送 LINE Pay 的 QR Code 圖片和訊息
-            linepay_image_url = f"https://{request.host}/static/images/linepay_qrcode.jpg"
-            text_message = TextSendMessage(
-                text=(
-                    "✨ 感謝您的支持！\n\n"
-                    "📷 請掃描以下的 QR Code 完成付款：\n\n"
-                    "📤 完成付款後，請回傳付款截圖，我們將在確認款項後提供限時有效的下載連結給您！\n\n"
-                    "🌟 感謝您的支持與信任，期待您的購買！ 🛍️"
-                )
+        linepay_image_url = f"https://{request.host}/static/images/linepay_qrcode.jpg"
+        text_message = TextSendMessage(
+            text=(
+                "✨ 感謝您的支持！\n\n"
+                "📷 請掃描以下的 QR Code 完成付款：\n\n"
+                "📤 完成付款後，請回傳付款截圖，我們將在確認款項後提供限時有效的下載連結給您！\n\n"
+                "🌟 感謝您的支持與信任，期待您的購買！ 🛍️"
             )
-            image_message = ImageSendMessage(
-                original_content_url=linepay_image_url,
-                preview_image_url=linepay_image_url
-            )
-            line_bot_api.reply_message(event.reply_token, [text_message, image_message])
+        )
+        image_message = ImageSendMessage(
+            original_content_url=linepay_image_url,
+            preview_image_url=linepay_image_url
+        )
+        line_bot_api.reply_message(event.reply_token, [text_message, image_message])
 
     elif message_text == "選擇 郵局匯款":
-        # 提示用戶郵局匯款
         reply_message = TextSendMessage(
             text=(
                 "✨ 感謝您的支持！\n\n"
@@ -149,7 +140,6 @@ def handle_text_message(event):
             )
         )
         line_bot_api.reply_message(event.reply_token, reply_message)
-
 
 
 @handler.add(MessageEvent, message=ImageMessage)
