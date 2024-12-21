@@ -1,34 +1,37 @@
 body {
     font-family: Arial, sans-serif;
-    background-color: #f4f4f4;
+    background-color: #e6f7ff; /* 淺藍背景 */
     margin: 0;
     padding: 0;
     display: flex;
     justify-content: center;
-    align-items: center;
-    height: 100vh;
+    align-items: flex-start; /* 從頂部開始排列 */
+    min-height: 100vh;
+    overflow-y: auto; /* 垂直滾動 */
+    box-sizing: border-box;
 }
 
 .upload-container {
     background: white;
-    padding: 20px 30px;
-    border-radius: 10px;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    padding: 25px 35px;
+    border-radius: 15px;
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
     width: 100%;
-    max-width: 400px;
+    max-width: 450px;
     box-sizing: border-box;
+    margin: 20px auto; /* 與頁面上下保持距離 */
 }
 
 .upload-container h1 {
-    font-size: 24px;
+    font-size: 26px;
     margin-bottom: 20px;
     text-align: center;
-    color: #333;
+    color: #0056b3; /* 深藍色文字 */
 }
 
 .upload-container label {
     font-size: 14px;
-    color: #555;
+    color: #0056b3;
     margin-bottom: 5px;
     display: block;
 }
@@ -37,61 +40,74 @@ body {
 .upload-container select,
 .upload-container input[type="file"] {
     width: 100%;
-    padding: 10px;
-    margin-bottom: 15px;
-    border: 1px solid #ddd;
-    border-radius: 5px;
+    padding: 12px;
+    margin-bottom: 20px;
+    border: 1px solid #b3d8ff; /* 淺藍邊框 */
+    border-radius: 8px;
     font-size: 14px;
     box-sizing: border-box;
+    transition: border-color 0.3s;
+}
+
+.upload-container input:focus,
+.upload-container select:focus,
+.upload-container input[type="file"]:focus {
+    border-color: #0056b3; /* 聚焦時深藍邊框 */
+    outline: none;
+    box-shadow: 0 0 5px rgba(0, 86, 179, 0.5);
 }
 
 .upload-container button {
-    background-color: #4CAF50;
+    background-color: #0056b3;
     color: white;
-    padding: 10px 15px;
+    padding: 12px 18px;
     border: none;
-    border-radius: 5px;
+    border-radius: 8px;
     font-size: 16px;
     cursor: pointer;
     width: 100%;
+    transition: background-color 0.3s;
 }
 
 .upload-container button:hover {
-    background-color: #4577a0;
+    background-color: #003d80; /* 深色按鈕 */
 }
 
 .upload-container .help-text {
     font-size: 12px;
-    color: #888;
+    color: #666;
     margin-top: -10px;
     margin-bottom: 15px;
 }
 
 .notice-box {
-    padding: 10px;
+    padding: 15px;
+    background: #f0f8ff; /* 藍白背景 */
+    border: 1px solid #b3d8ff;
+    border-radius: 10px;
+    margin-bottom: 20px;
+    font-size: 14px;
+    color: #333;
 }
 
+.notice-box ul {
+    padding-left: 20px;
+}
+
+.notice-box strong {
+    color: #0056b3; /* 強調文字的顏色 */
+}
 
 @media (max-width: 600px) {
-    form {
-        padding: 15px;
+    .upload-container {
+        padding: 20px;
     }
 
     label, input, select, button {
         font-size: 14px;
     }
 
-    h1 {
-        font-size: 20px;
+    .upload-container h1 {
+        font-size: 22px;
     }
-}
-
-button {
-        background: #4CAF50;
-        color: white;
-        border: none;
-        cursor: pointer;
-        margin-top: 20px;
-        font-size: 18px;
-        transition: background 0.3s; /* 按鈕顏色過渡效果 */
 }
