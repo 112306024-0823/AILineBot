@@ -15,6 +15,17 @@ from firebase_admin import credentials, firestore
 # 初始化環境變數檢查
 check_environment_variables()
 
+
+
+NOTES_PRICING = {
+    "A01": 150,
+    "A02": 150,
+    "A03": 150,
+    "A04": 50,
+    "A05": 50
+}
+
+
 # 初始化 Firebase
 try:
     firebase_info = json.loads(os.getenv("FIREBASE_CREDENTIALS"))
@@ -76,36 +87,65 @@ def handle_text_message(event):
         )
         line_bot_api.reply_message(event.reply_token, reply_message)
 
+    elif message_text.startswith("購買筆記"):
+        import re
+
+        # 使用正則表達式提取筆記編號
+        match = re.match(r"購買筆記\s*(A\d{2})", message_text)
+        if not match:
+            line_bot_api.reply_message(
+                event.reply_token,
+                TextSendMessage(text="❌ 請提供有效的筆記編號，例如：購買筆記 A01。")
+            )
+            return
+
+        # 提取到的筆記編號
+        note_code = match.group(1)
+        if note_code in NOTES_PRICING:
+            price = NOTES_PRICING[note_code]
+
+            # 回應用戶價格與付款選項
+            quick_reply = QuickReply(items=[
+                QuickReplyButton(action=MessageAction(label="LINE Pay", text="選擇 LINE Pay")),
+                QuickReplyButton(action=MessageAction(label="郵局匯款", text="選擇 郵局匯款"))
+            ])
+            reply_message = TextSendMessage(
+                text=f"您選擇購買筆記 {note_code}，價格為 {price} 元。\n請選擇您的付款方式：",
+                quick_reply=quick_reply
+            )
+            line_bot_api.reply_message(event.reply_token, reply_message)
+        else:
+            line_bot_api.reply_message(
+                event.reply_token,
+                TextSendMessage(text="❌ 未找到該筆記編號，請確認後重新輸入。")
+            )
+
+
     elif message_text == "選擇 LINE Pay":
-        linepay_image_url = f"https://{request.host}/static/images/linepay_qrcode.jpg"
-        reply_message = [
-            TextSendMessage(
-                text=(
+        # 提示用戶 LINE Pay 付款
+        reply_message = TextSendMessage(
+            text=(
                     "✨ 感謝您的支持！\n\n"
                     "📷 請掃描以下的 QR Code 完成付款：\n\n"
                     "📤 完成匯款後，請回傳付款截圖，我們將在確認款項後提供限時有效的下載連結給您！\n\n"
-                    "🌟 感謝您的支持，祝您有美好的一天！ 🎉"
-                )
-            ),
-            ImageSendMessage(
-                original_content_url=linepay_image_url,
-                preview_image_url=linepay_image_url
-            )
-        ]
-
+                    "🌟 感謝您的支持，祝期末HIGH PASS！ 🎉"
+             )
+        )
         line_bot_api.reply_message(event.reply_token, reply_message)
 
     elif message_text == "選擇 郵局匯款":
+        # 提示用戶郵局匯款
         reply_message = TextSendMessage(
             text=(
                 "🏦 **郵局匯款方式**\n\n"
                 "銀行代碼：700\n"
                 "帳號：0000023980362050\n\n"
                 "📤 完成匯款後，請回傳付款截圖，我們將在確認款項後提供限時有效的下載連結給您！\n\n"
-                "🌟 感謝您的支持，祝您有美好的一天！ 🎉"
+                "🌟 感謝您的支持，祝期末HIGH PASS！ 🎉"
             )
         )
         line_bot_api.reply_message(event.reply_token, reply_message)
+
 
 
 @handler.add(MessageEvent, message=ImageMessage)

@@ -16,11 +16,6 @@
             <input type="text" id="username" name="username" placeholder="請輸入您的暱稱" required>
             <span class="help-text">* 請填寫用戶暱稱</span>
 
-
-            <label for="subject">科目名稱</label>
-            <input type="text" id="subject" name="subject" placeholder="例如：統計學、經濟學" required>
-            <span class="help-text">* 可自行填寫科目名稱</span>
-            
             <label for="grade">選擇年級</label>
             <select id="grade" name="grade" required>
                 <option value="" disabled selected>請選擇年級</option>
@@ -28,8 +23,26 @@
                 <option value="大二">大二</option>
                 <option value="大三">大三</option>
                 <option value="大四">大四</option>
-                <option value="研究生">研究生</option>
+                <option value="研一">研究生</option>
+                <option value="研二">研究生</option>
+                <option value="其他">研究生</option>
             </select>
+
+            <label for="subject">科目名稱_章節名稱</label>
+            <input type="text" id="subject" name="subject" placeholder="例如：統計學_機率分配模型、經濟學(一)、微積分甲(一)" required>
+            <span class="help-text">* 可自行填寫科目名稱</span>
+            
+            <label for="grade">筆記撰寫年份</label>
+            <select id="grade" name="grade" required>
+                <option value="" disabled selected>請選擇年級</option>
+                <option value="113年">113年</option>
+                <option value="112年">112年</option>
+                <option value="111年">111年</option>
+                <option value="110年">110年</option>
+                <option value="109年">109年</option>
+                <option value="108年">108年</option>
+            </select>
+
             
             <label for="file">選擇檔案</label>
             <input type="file" id="file" name="file" accept=".pdf,.png,.jpg,.jpeg,.doc,.docx" required>

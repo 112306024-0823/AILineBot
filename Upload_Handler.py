@@ -27,10 +27,11 @@ class UploadHandler:
                 subject = request.form.get("subject")
                 grade = request.form.get("grade")
                 username = request.form.get("username")
+                year = request.form.get("year")
 
                 # 驗證表單數據
                 if not subject or not grade:
-                    return jsonify({"status": "error", "message": "請填寫完整的科目和年級信息！"}), 400
+                    return jsonify({"status": "error", "message": "請填寫完整訊息！"}), 400
                 if not username or not self.is_valid_username(username):
                     return jsonify({"status": "error", "message": "請提供有效的用戶名！"}), 400
 
@@ -42,7 +43,7 @@ class UploadHandler:
 
                     # 後台處理檔案上傳
                     Thread(target=background_upload_and_save, args=(
-                        username, filename, file_path, subject, grade, self.folder_id, self.line_bot_api
+                        username, year,filename, file_path, subject, grade, self.folder_id, self.line_bot_api
                     )).start()
 
                     return '''
@@ -50,7 +51,7 @@ class UploadHandler:
                     <html>
                     <head>
                         <script>
-                            alert("檔案上傳成功！即將返回 LINE");
+                            alert("檔案上傳成功，筆記將於審核後上架，返回 LINE頁面");
                             window.location.href = "line://nv/chat";
                         </script>
                     </head>
