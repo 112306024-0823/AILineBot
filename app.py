@@ -50,7 +50,7 @@ user_states = {}  # 用來存儲用戶的狀態
 def generate_E_response(user_message):
     prompt = f"你是一個幽默的學霸，專門吐槽不讀書的人。用一句毒雞湯回應這段話：'{user_message}'"
     response = openai.Completion.create(
-        model="text-davinci-003",
+        model="gpt-3.5-turbo",
         prompt=prompt,
         max_tokens=50,
         temperature=0.7
