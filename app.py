@@ -15,7 +15,6 @@ from firebase_admin import credentials, firestore
 from threading import Thread
 from review_monitor import monitor_review_status  # 假設監聽邏輯放在 review_monitor.py
 
-
 # 初始化環境變數檢查
 check_environment_variables()
 
@@ -58,8 +57,6 @@ def generate_E_response(user_message):
     )
     return response.choices[0].text.strip()
 
-
-
 # 註冊 UploadHandler
 FOLDER_ID = "1h7DL1gRlB96Dpxmad0-gMvSDdVjm57vn"
 upload_handler = UploadHandler(upload_folder="uploads", line_bot_api=line_bot_api, folder_id=FOLDER_ID)
@@ -96,21 +93,42 @@ def handle_text_message(event):
 
     message_text = event.message.text.strip()
 
+    # 初始設置用戶狀態
+    if user_id not in user_states:
+        user_states[user_id] = "default"
 
+    # 快速回覆的邏輯
+    def get_quick_reply():
+        if user_states[user_id] == "chat_with_xiaoE":
+            return QuickReply(items=[
+                QuickReplyButton(action=MessageAction(label="退出小E對話", text="退出小E模式"))
+            ])
+        else:
+            return QuickReply(items=[
+                QuickReplyButton(action=MessageAction(label="與學霸小E對話", text="跟小E對話")),
+                QuickReplyButton(action=MessageAction(label="上傳筆記", text="我要上傳筆記")),
+                QuickReplyButton(action=MessageAction(label="購買筆記", text="購買筆記"))
+            ])
+
+    # 進入小E對話模式
     if message_text == "跟小E對話":
         user_states[user_id] = "chat_with_xiaoE"
         reply_message = TextSendMessage(
-            text="學霸小E已經啟動！請問，你準備好期末了嗎？"
+            text="學霸小E已經啟動！請問，你準備好期末了嗎？",
+            quick_reply=get_quick_reply()  # 根據狀態設置快速回覆選項
         )
         line_bot_api.reply_message(event.reply_token, reply_message)
 
+    # 退出小E對話模式
     elif message_text == "退出小E模式":
         user_states[user_id] = "default"
         reply_message = TextSendMessage(
-            text="已退出學霸小E模式，學霸要來偷卷了"
+            text="已退出學霸小E模式，學霸要來偷卷了",
+            quick_reply=get_quick_reply()  # 根據狀態設置快速回覆選項
         )
         line_bot_api.reply_message(event.reply_token, reply_message)
 
+    # 學霸小E對話模式
     elif user_states[user_id] == "chat_with_xiaoE":
         reply_content = generate_E_response(message_text)  # 調用生成學霸小E回應的函數
         line_bot_api.reply_message(
@@ -118,11 +136,9 @@ def handle_text_message(event):
             TextSendMessage(text=reply_content)
         )
 
-
-    if message_text == "我要上傳筆記":
-        quick_reply = QuickReply(items=[
-            QuickReplyButton(action=URIAction(label="點擊上傳檔案", uri=f"https://{request.host}/upload?user_id={user_id}"))
-        ])
+    # 其他選項處理
+    elif message_text == "我要上傳筆記":
+        quick_reply = QuickReply(items=[QuickReplyButton(action=URIAction(label="點擊上傳檔案", uri=f"https://{request.host}/upload?user_id={user_id}"))])
         reply_message = TextSendMessage(
             text="請點擊下方按鈕上傳檔案：", quick_reply=quick_reply
         )
@@ -203,4 +219,3 @@ if __name__ == "__main__":
     
     # 啟動 Flask 應用
     app.run(host='0.0.0.0', port=port)
-
