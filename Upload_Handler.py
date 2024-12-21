@@ -60,8 +60,8 @@ class UploadHandler:
                     <html>
                     <head>
                         <script>
-                            alert("檔案上傳成功，筆記將於審核後上架，返回 LINE頁面");
-                            window.location.href = "line://nv/chat";
+                            alert("檔案上傳成功，筆記將於審核後上架，返回LINE頁面");
+                            window.location.href = "https://line.me/R/ti/p/@625evpbz";
                         </script>
                     </head>
                     <body></body>

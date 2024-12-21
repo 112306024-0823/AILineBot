@@ -1,7 +1,6 @@
 from firebase_admin import firestore
 from linebot.models import FlexSendMessage
-from notifications import send_review_failure_notification,send_review_success_notification
-
+from notifications import NotificationHandler
 def monitor_review_status(line_bot_api):
     """監聽 Firebase 中的筆記審核狀態變更"""
     db = firestore.client()
@@ -25,10 +24,10 @@ def monitor_review_status(line_bot_api):
 
 
                 if status == "上架成功":
-                    send_review_success_notification(line_bot_api, user_id, file_name, subject, grade, note.get("file_url"))
+                    NotificationHandler.send_review_success_notification(line_bot_api, user_id, file_name, subject, grade, note.get("file_url"))
                     notes_ref.document(change.document.id).update({"status": "已通知"})
                 elif status == "審核失敗":
-                    send_review_failure_notification(line_bot_api, user_id, file_name, reason)
+                    NotificationHandler.send_review_failure_notification(line_bot_api, user_id, file_name, reason)
                     notes_ref.document(change.document.id).update({"status": "已通知"})
 
     # 啟用監聽器
