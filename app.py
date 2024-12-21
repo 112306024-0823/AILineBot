@@ -90,6 +90,11 @@ def handle_text_message(event):
             TextSendMessage(text="無法獲取用戶 ID，請確保您已添加好友。")
         )
         return
+    
+        # 設置用戶的初始狀態，如果尚未存在
+    if user_id not in user_states:
+        user_states[user_id] = "default"  # 設置初始狀態為 'default'
+
 
     message_text = event.message.text.strip()
 
