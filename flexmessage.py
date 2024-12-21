@@ -8,7 +8,7 @@ def create_upload_success_flex(file_name, subject, grade):
             "type": "bubble",
             "hero": {
                 "type": "image",
-                "url": "https://via.placeholder.com/1024x512.png?text=檔案上傳成功",
+                "url": "https://{request.host}/static/images/Enote_Logo.jpg",
                 "size": "full",
                 "aspectRatio": "20:10",
                 "aspectMode": "cover"
@@ -82,7 +82,7 @@ def create_review_success_flex(file_name, subject, grade, file_url):
             "type": "bubble",
             "hero": {
                 "type": "image",
-                "url": "https://yourdomain.com/static/images/Enote_Logo.png",  # 替換為適合的圖片
+                "url": "https://{request.host}/static/images/Enote_Logo.jpg",
                 "size": "full",
                 "aspectRatio": "20:10",
                 "aspectMode": "cover"
