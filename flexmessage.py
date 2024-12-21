@@ -1,4 +1,6 @@
 from linebot.models import FlexSendMessage
+from flask import url_for
+
 
 def create_upload_success_flex(file_name, subject, grade):
     """建立 Flex Message 用於通知檔案上傳成功"""
