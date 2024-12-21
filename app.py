@@ -220,7 +220,7 @@ def handle_text_message(event):
                   "📤 完成匯款後，請回傳付款截圖，我們將在確認款項後提供限時有效的下載連結給您！\n\n"
                   "🌟 感謝您的支持，祝期末HIGH PASS！ 🎉"),quick_reply=quick_reply)
             
-        ),
+        
         line_bot_api.reply_message(event.reply_token, reply_message)
 
 
