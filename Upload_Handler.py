@@ -4,7 +4,7 @@ from threading import Thread
 from utils import background_upload_and_save
 import os
 import json
-
+from flexmessage import create_upload_success_flex
 
 class UploadHandler:
     ALLOWED_EXTENSIONS = {"pdf", "png", "jpg", "jpeg", "doc", "docx"}
@@ -43,8 +43,12 @@ class UploadHandler:
 
                     # 後台處理檔案上傳
                     Thread(target=background_upload_and_save, args=(
-                        username, year,filename, file_path, subject, grade, self.folder_id, self.line_bot_api
+                        username, year, filename, file_path, subject, grade, self.folder_id, self.line_bot_api
                     )).start()
+
+                    # 發送 Flex Message 通知用戶
+                    flex_message = create_upload_success_flex(filename, subject, grade)
+                    self.line_bot_api.push_message(username, flex_message)
 
                     return '''
                     <!doctype html>
@@ -61,6 +65,15 @@ class UploadHandler:
                 return jsonify({"status": "error", "message": "不支持的文件格式！"}), 400
 
             return render_template("upload.html")
+
+    def allowed_file(self, filename):
+        """檢查檔案格式是否允許"""
+        return "." in filename and filename.rsplit(".", 1)[1].lower() in self.ALLOWED_EXTENSIONS
+
+    def is_valid_username(self, username):
+        """驗證用戶名是否有效"""
+        return username.isalnum() and len(username) <= 30
+
 
     def allowed_file(self, filename):
         """檢查檔案格式是否允許"""

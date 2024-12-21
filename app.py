@@ -14,8 +14,7 @@ from firebase_admin import credentials, firestore
 
 # 初始化環境變數檢查
 check_environment_variables()
-
-
+linepay_image_url = f"https://{request.host}/static/images/linepay_qrcode.jpg"
 
 NOTES_PRICING = {
     "A01": 150,
@@ -122,6 +121,7 @@ def handle_text_message(event):
 
 
     elif message_text == "選擇 LINE Pay":
+
         # 提示用戶 LINE Pay 付款
         reply_message = TextSendMessage(
             text=(
@@ -131,12 +131,18 @@ def handle_text_message(event):
                     "🌟 感謝您的支持，祝期末HIGH PASS！ 🎉"
              )
         )
+        ImageSendMessage(
+            original_content_url=linepay_image_url,
+            preview_image_url=linepay_image_url
+        )
+
         line_bot_api.reply_message(event.reply_token, reply_message)
 
     elif message_text == "選擇 郵局匯款":
         # 提示用戶郵局匯款
         reply_message = TextSendMessage(
             text=(
+                "✨ 感謝您的支持！\n\n"
                 "🏦郵局匯款\n\n"
                 "銀行代碼：700\n"
                 "帳號：0000023980362050\n\n"
