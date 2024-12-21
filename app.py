@@ -201,13 +201,15 @@ def handle_text_message(event):
             text=("✨ 感謝您的支持！\n\n"
                   "📷 請掃描以下的 QR Code 完成付款：\n\n"
                   "📤 完成付款後，請回傳付款截圖，我們將在確認款項後提供限時有效的下載連結給您！\n\n"
-                  "🌟 感謝您的支持與信任，期待您的購買！ 🛍️")
-        )
+                  "🌟 感謝您的支持與信任，期待您的購買！ 🛍️"),quick_reply=quick_reply)
+
+        
         image_message = ImageSendMessage(
             original_content_url=linepay_image_url,
             preview_image_url=linepay_image_url
         )
         line_bot_api.reply_message(event.reply_token, [text_message, image_message])
+        
 
     elif message_text == "選擇 郵局匯款":
         reply_message = TextSendMessage(
@@ -216,9 +218,11 @@ def handle_text_message(event):
                   "銀行代碼：700\n"
                   "帳號：0000023980362050\n\n"
                   "📤 完成匯款後，請回傳付款截圖，我們將在確認款項後提供限時有效的下載連結給您！\n\n"
-                  "🌟 感謝您的支持，祝期末HIGH PASS！ 🎉")
-        )
+                  "🌟 感謝您的支持，祝期末HIGH PASS！ 🎉"),quick_reply=quick_reply)
+            
+        ),
         line_bot_api.reply_message(event.reply_token, reply_message)
+
 
 
 @handler.add(MessageEvent, message=ImageMessage)
