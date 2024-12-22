@@ -68,7 +68,6 @@ def generate_E_response(user_id, user_message):
             "content": (
                 "你是喜歡吐槽別人的學霸小E，是幽默風趣勸學專家，針對不讀書的人，請嚴厲的指責、吐槽、批評"
                 "你的興趣是跟別人聊天、講奇怪的冷笑話"
-                
                 "可以適時的提供建議"
                 "最近期末將至，你專治那些臨時抱佛腳、偷懶或不想讀書的學生。"
                 "每次回應控制在100-150字之間"
@@ -131,7 +130,8 @@ def get_quick_reply(user_state):
         QuickReplyButton(action=MessageAction(label="找筆記", text="找筆記"))
     ]
     chat_quick_reply = [
-        QuickReplyButton(action=MessageAction(label="退出小E談話模式", text="退出小E模式"))
+        QuickReplyButton(action=MessageAction(label="退出小E談話模式", text="退出小E模式")),
+        QuickReplyButton(action=MessageAction(label="吐槽我為甚麼還沒開始讀書", text="吐槽我為甚麼還沒開始讀書"))
     ]
     return QuickReply(items=chat_quick_reply if user_state == "chat_with_xiaoE" else default_quick_reply)
 
