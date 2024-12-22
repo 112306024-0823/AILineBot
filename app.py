@@ -46,6 +46,22 @@ handler = WebhookHandler(os.getenv('CHANNEL_SECRET'))
 openai.api_key = os.getenv("OPENAI_API_KEY")
 # 用戶狀態管理
 user_states = {}  # 用來存儲用戶的狀態
+# Firebase 用戶狀態操作
+def get_user_state(user_id):
+    """從 Firestore 獲取用戶狀態，默認為 'default'"""
+    doc = db.collection("user_states").document(user_id).get()
+    if doc.exists:
+        return doc.to_dict().get("state", "default")
+    return "default"
+
+
+def set_user_state(user_id, state):
+    """將用戶狀態更新到 Firestore"""
+    db.collection("user_states").document(user_id).set({
+        "state": state,
+        "last_updated": firestore.SERVER_TIMESTAMP
+    }, merge=True)
+
 
 # 更新生成學霸小E回應的函數
 def generate_E_response(user_message):
@@ -90,7 +106,6 @@ def callback():
 
 
 # 處理用戶訊息的邏輯
-# 處理用戶訊息的邏輯
 @handler.add(MessageEvent, message=TextMessage)
 def handle_text_message(event):
     user_id = getattr(event.source, 'user_id', None)
@@ -102,10 +117,7 @@ def handle_text_message(event):
         return
 
     message_text = event.message.text.strip()
-
-    # 初始化用戶狀態
-    if user_id not in user_states:
-        user_states[user_id] = "default"
+    user_states = get_user_state(user_id)
 
     # 快速回覆選項
     def get_quick_reply():
@@ -121,9 +133,9 @@ def handle_text_message(event):
         return QuickReply(items=default_quick_reply)
 
     # 處理狀態邏輯
-    if user_states[user_id] == "default":
+    if user_states == "default":
         if message_text == "跟小E對話":
-            user_states[user_id] = "chat_with_xiaoE"
+            set_user_state(user_id, "chat_with_xiaoE")
             reply_message = TextSendMessage(
                 text="你好，我是學霸小E，歡迎跟我聊天！",
                 quick_reply=get_quick_reply()
@@ -186,9 +198,9 @@ def handle_text_message(event):
             )
         line_bot_api.reply_message(event.reply_token, reply_message)
 
-    elif user_states[user_id] == "chat_with_xiaoE":
+    elif user_states == "chat_with_xiaoE":
         if message_text == "退出小E模式":
-            user_states[user_id] = "default"
+            set_user_state(user_id, "default")
             reply_message = TextSendMessage(
                 text="已退出學霸小E模式，趕快去讀書啦！",
                 quick_reply=get_quick_reply()
