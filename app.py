@@ -118,33 +118,43 @@ def handle_text_message(event):
             return QuickReply(items=[
                 QuickReplyButton(action=MessageAction(label="退出小E談話模式", text="退出小E模式"))
             ])
-        elif user_states[user_id] == "buy_note":
-            return QuickReply(items=[
-                QuickReplyButton(action=MessageAction(label="LINE Pay", text="選擇 LINE Pay")),
-                QuickReplyButton(action=MessageAction(label="郵局匯款", text="選擇 郵局匯款"))
-            ] + default_quick_reply)
         return QuickReply(items=default_quick_reply)
 
-    # 狀態處理
-    if message_text == "跟小E對話":
-        user_states[user_id] = "chat_with_xiaoE"
-        reply_message = TextSendMessage(
-            text="你好，我是學霸小E，歡迎跟我聊天！",
-            quick_reply=get_quick_reply()
-        )
-        line_bot_api.reply_message(event.reply_token, reply_message)
-
-    elif message_text == "退出小E模式":
-        user_states[user_id] = "default"
-        reply_message = TextSendMessage(
-            text="已退出學霸小E模式，趕快去讀書啦！",
-            quick_reply=get_quick_reply()
-        )
-        line_bot_api.reply_message(event.reply_token, reply_message)
-
-    elif user_states[user_id] == "buy_note":
-        # 處理購買筆記的付款方式
-        if message_text == "選擇 LINE Pay":
+    # 處理狀態邏輯
+    if user_states[user_id] == "default":
+        if message_text == "跟小E對話":
+            user_states[user_id] = "chat_with_xiaoE"
+            reply_message = TextSendMessage(
+                text="你好，我是學霸小E，歡迎跟我聊天！",
+                quick_reply=get_quick_reply()
+            )
+        elif message_text == "我要上傳筆記":
+            quick_reply = QuickReply(items=[
+                QuickReplyButton(action=URIAction(label="點擊上傳檔案", uri=f"https://{request.host}/upload?user_id={user_id}"))
+            ])
+            reply_message = TextSendMessage(
+                text="請點擊下方按鈕上傳檔案：", quick_reply=quick_reply
+            )
+        elif message_text.startswith("購買筆記"):
+            import re
+            match = re.match(r"購買筆記\s*(A\d{2})", message_text)
+            if match:
+                note_code = match.group(1)
+                if note_code in NOTES_PRICING:
+                    price = NOTES_PRICING[note_code]
+                    quick_reply = QuickReply(items=[
+                        QuickReplyButton(action=MessageAction(label="LINE Pay", text="選擇 LINE Pay")),
+                        QuickReplyButton(action=MessageAction(label="郵局匯款", text="選擇 郵局匯款"))
+                    ])
+                    reply_message = TextSendMessage(
+                        text=f"您選擇購買筆記 {note_code}，價格為 {price} 元。\n請選擇您的付款方式：",
+                        quick_reply=quick_reply
+                    )
+                else:
+                    reply_message = TextSendMessage(text="❌ 未找到該筆記編號，請確認後重新輸入。")
+            else:
+                reply_message = TextSendMessage(text="❌ 請提供有效的筆記編號，例如：購買筆記 A01。")
+        elif message_text == "選擇 LINE Pay":
             linepay_image_url = f"https://{request.host}/static/images/linepay_qrcode.jpg"
             text_message = TextSendMessage(
                 text=("✨ 感謝您的支持！\n\n"
@@ -153,13 +163,12 @@ def handle_text_message(event):
                       "🌟 感謝您的支持與信任，期待您的購買！ 🛍️"),
                 quick_reply=get_quick_reply()
             )
-
             image_message = ImageSendMessage(
                 original_content_url=linepay_image_url,
                 preview_image_url=linepay_image_url
             )
             line_bot_api.reply_message(event.reply_token, [text_message, image_message])
-
+            return
         elif message_text == "選擇 郵局匯款":
             reply_message = TextSendMessage(
                 text=("✨ 感謝您的支持！\n\n"
@@ -170,50 +179,25 @@ def handle_text_message(event):
                       "🌟 感謝您的支持，祝期末HIGH PASS！ 🎉"),
                 quick_reply=get_quick_reply()
             )
-            line_bot_api.reply_message(event.reply_token, reply_message)
-
-    elif message_text == "我要上傳筆記":
-        quick_reply = QuickReply(items=[
-            QuickReplyButton(action=URIAction(label="點擊上傳檔案", uri=f"https://{request.host}/upload?user_id={user_id}"))
-        ])
-        reply_message = TextSendMessage(
-            text="請點擊下方按鈕上傳檔案：", quick_reply=quick_reply
-        )
+        else:
+            reply_message = TextSendMessage(
+                text="已收到您的訊息！我們會稍後回覆，感謝您的耐心等待 😊",
+                quick_reply=get_quick_reply()
+            )
         line_bot_api.reply_message(event.reply_token, reply_message)
 
-    elif message_text.startswith("購買筆記"):
-        import re
-        match = re.match(r"購買筆記\s*(A\d{2})", message_text)
-        if not match:
-            line_bot_api.reply_message(
-                event.reply_token,
-                TextSendMessage(text="❌ 請提供有效的筆記編號，例如：購買筆記 A01。")
-            )
-            return
-        note_code = match.group(1)
-        if note_code in NOTES_PRICING:
-            price = NOTES_PRICING[note_code]
-            quick_reply = QuickReply(items=[
-                QuickReplyButton(action=MessageAction(label="LINE Pay", text="選擇 LINE Pay")),
-                QuickReplyButton(action=MessageAction(label="郵局匯款", text="選擇 郵局匯款"))
-            ])
+    elif user_states[user_id] == "chat_with_xiaoE":
+        if message_text == "退出小E模式":
+            user_states[user_id] = "default"
             reply_message = TextSendMessage(
-                text=f"您選擇購買筆記 {note_code}，價格為 {price} 元。\n請選擇您的付款方式：",
-                quick_reply=quick_reply
+                text="已退出學霸小E模式，趕快去讀書啦！",
+                quick_reply=get_quick_reply()
             )
-            user_states[user_id] = "buy_note"
-            line_bot_api.reply_message(event.reply_token, reply_message)
         else:
-            line_bot_api.reply_message(
-                event.reply_token,
-                TextSendMessage(text="❌ 未找到該筆記編號，請確認後重新輸入。")
+            reply_content = generate_E_response(message_text)
+            reply_message = TextSendMessage(
+                text=reply_content, quick_reply=get_quick_reply()
             )
-    else:
-        # 默認回應
-        reply_message = TextSendMessage(
-            text="已收到您的訊息！我們會稍後回覆，感謝您的耐心等待 😊",
-            quick_reply=get_quick_reply()
-        )
         line_bot_api.reply_message(event.reply_token, reply_message)
 
 
@@ -221,7 +205,7 @@ def handle_text_message(event):
 def handle_image_message(event):
     reply_token = event.reply_token
     confirmation_message = TextSendMessage(
-        text="✅ 已收到您的付款證明。我們將盡快處理並提供下載連結！"
+        text="✅ 已收到您的付款證明。我們將在確認款項後提供下載連結！"
     )
     line_bot_api.reply_message(reply_token, confirmation_message)
 
