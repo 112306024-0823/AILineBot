@@ -225,7 +225,7 @@ def handle_text_message(event):
                 quick_reply=get_quick_reply("default")
             )
         else:
-            reply_content = generate_E_response(message_text)
+            reply_content = generate_E_response(user_id, message_text)
             reply_message = TextSendMessage(
                 text=reply_content, quick_reply=get_quick_reply("chat_with_xiaoE")
             )
