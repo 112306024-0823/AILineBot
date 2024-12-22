@@ -1,6 +1,8 @@
 from flask import Flask, request, abort, jsonify
 import json
 import openai
+from chat_history import save_chat_history, load_chat_history
+
 from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
 from linebot.models import (
@@ -66,23 +68,46 @@ def set_user_state(user_id, state):
         print(f"Error setting user state: {e}")
 
 # 更新生成學霸小E回應的函數
-def generate_E_response(user_message):
+def generate_E_response(user_id, user_message):
     try:
+        # 加載用戶對話歷史
+        conversations = load_chat_history(user_id)
+
+        # 始終確保系統角色在對話開頭
+        system_message = {
+            "role": "system",
+            "content": (
+                "你是學霸小E，你是幽默風趣且毒舌的學霸兼勸學專家，"
+                "最近期末將至，你專治那些臨時抱佛腳、偷懶或不想讀書的學生。"
+                "每次回應不超過130字"
+            )
+        }
+        if not conversations or conversations[0]["role"] != "system":
+            conversations.insert(0, system_message)
+
+        # 添加用戶的最新訊息
+        conversations.append({"role": "user", "content": user_message})
+
+        # 呼叫 GPT API 生成回應
         response = openai.ChatCompletion.create(
             model="gpt-3.5-turbo",
-            messages=[
-                {"role": "system", "content": 
-                    "你是學霸小E，你是幽默風趣且毒舌的學霸兼勸學專家，最近期末將至，你專治那些臨時抱佛腳、偷懶或不想讀書的學生。每次回應不超過130字"},
-                {"role": "user", "content": user_message}
-            ],
-            max_tokens=200,
+            messages=conversations,
+            max_tokens=180,
             temperature=0.85,
             top_p=0.9
         )
-        return response.choices[0].message['content'].strip()
+
+        # GPT 回應
+        assistant_message = response.choices[0].message['content'].strip()
+
+        # 儲存新的對話
+        save_chat_history(user_id, "user", user_message)
+        save_chat_history(user_id, "assistant", assistant_message)
+
+        return assistant_message
     except Exception as e:
         print(f"Error generating response: {e}")
-        return "抱歉，我無法理解您的問題，請稍後再試。"
+        return "抱歉，小E現在有點忙，稍後再試吧！"
 
 # 註冊 UploadHandler
 FOLDER_ID = "1h7DL1gRlB96Dpxmad0-gMvSDdVjm57vn"
