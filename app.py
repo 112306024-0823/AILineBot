@@ -100,38 +100,36 @@ def handle_text_message(event):
             TextSendMessage(text="無法獲取用戶 ID，請確保您已添加好友。")
         )
         return
-    
+
     message_text = event.message.text.strip()
 
-    # 設置用戶的初始狀態，如果尚未存在
+    # 初始化用戶狀態
     if user_id not in user_states:
-        user_states[user_id] = "default"  # 設置初始狀態為 'default'
+        user_states[user_id] = "default"
 
-    # 快速回覆選項的邏輯
+    # 快速回覆選項
     def get_quick_reply():
-        # 默認顯示這些選項，不管是處於哪個模式
         default_quick_reply = [
             QuickReplyButton(action=MessageAction(label="找學霸小E談談心！", text="跟小E對話")),
-
-            # 上傳筆記和找筆記
             QuickReplyButton(action=MessageAction(label="上傳筆記", text="我要上傳筆記")),
             QuickReplyButton(action=MessageAction(label="找筆記", text="找筆記"))
         ]
-
         if user_states[user_id] == "chat_with_xiaoE":
-            return QuickReply(items=[QuickReplyButton(action=MessageAction(label="退出小E模式", text="退出小E模式"))] + default_quick_reply)
-
+            return QuickReply(items=[
+                QuickReplyButton(action=MessageAction(label="退出小E談話模式", text="退出小E模式"))
+            ])
         elif user_states[user_id] == "buy_note":
-            return QuickReply(items=[QuickReplyButton(action=MessageAction(label="LINE Pay", text="選擇 LINE Pay")),
-                                     QuickReplyButton(action=MessageAction(label="郵局匯款", text="選擇 郵局匯款"))] + default_quick_reply)
-
+            return QuickReply(items=[
+                QuickReplyButton(action=MessageAction(label="LINE Pay", text="選擇 LINE Pay")),
+                QuickReplyButton(action=MessageAction(label="郵局匯款", text="選擇 郵局匯款"))
+            ] + default_quick_reply)
         return QuickReply(items=default_quick_reply)
 
-    # 進入小E對話模式
+    # 狀態處理
     if message_text == "跟小E對話":
         user_states[user_id] = "chat_with_xiaoE"
         reply_message = TextSendMessage(
-            text="你好，我是學霸小E，聽說大家最近期末壓力很大，歡迎跟我聊天！",
+            text="你好，我是學霸小E，歡迎跟我聊天！",
             quick_reply=get_quick_reply()
         )
         line_bot_api.reply_message(event.reply_token, reply_message)
@@ -139,21 +137,45 @@ def handle_text_message(event):
     elif message_text == "退出小E模式":
         user_states[user_id] = "default"
         reply_message = TextSendMessage(
-            text="已退出學霸小E模式，學霸要來偷卷了",
+            text="已退出學霸小E模式，趕快去讀書啦！",
             quick_reply=get_quick_reply()
         )
         line_bot_api.reply_message(event.reply_token, reply_message)
 
-    # 學霸小E對話模式
-    elif user_states[user_id] == "chat_with_xiaoE":
-        reply_content = generate_E_response(message_text)
-        line_bot_api.reply_message(
-            event.reply_token,
-            TextSendMessage(text=reply_content, quick_reply=get_quick_reply())
-        )
+    elif user_states[user_id] == "buy_note":
+        # 處理購買筆記的付款方式
+        if message_text == "選擇 LINE Pay":
+            linepay_image_url = f"https://{request.host}/static/images/linepay_qrcode.jpg"
+            text_message = TextSendMessage(
+                text=("✨ 感謝您的支持！\n\n"
+                      "📷 請掃描以下的 QR Code 完成付款：\n\n"
+                      "📤 完成付款後，請回傳付款截圖，我們將在確認款項後提供限時有效的下載連結給您！\n\n"
+                      "🌟 感謝您的支持與信任，期待您的購買！ 🛍️"),
+                quick_reply=get_quick_reply()
+            )
+
+            image_message = ImageSendMessage(
+                original_content_url=linepay_image_url,
+                preview_image_url=linepay_image_url
+            )
+            line_bot_api.reply_message(event.reply_token, [text_message, image_message])
+
+        elif message_text == "選擇 郵局匯款":
+            reply_message = TextSendMessage(
+                text=("✨ 感謝您的支持！\n\n"
+                      "🏦郵局匯款\n\n"
+                      "銀行代碼：700\n"
+                      "帳號：0000023980362050\n\n"
+                      "📤 完成匯款後，請回傳付款截圖，我們將在確認款項後提供限時有效的下載連結給您！\n\n"
+                      "🌟 感謝您的支持，祝期末HIGH PASS！ 🎉"),
+                quick_reply=get_quick_reply()
+            )
+            line_bot_api.reply_message(event.reply_token, reply_message)
 
     elif message_text == "我要上傳筆記":
-        quick_reply = QuickReply(items=[QuickReplyButton(action=URIAction(label="點擊上傳檔案", uri=f"https://{request.host}/upload?user_id={user_id}"))])
+        quick_reply = QuickReply(items=[
+            QuickReplyButton(action=URIAction(label="點擊上傳檔案", uri=f"https://{request.host}/upload?user_id={user_id}"))
+        ])
         reply_message = TextSendMessage(
             text="請點擊下方按鈕上傳檔案：", quick_reply=quick_reply
         )
@@ -168,12 +190,13 @@ def handle_text_message(event):
                 TextSendMessage(text="❌ 請提供有效的筆記編號，例如：購買筆記 A01。")
             )
             return
-
         note_code = match.group(1)
         if note_code in NOTES_PRICING:
             price = NOTES_PRICING[note_code]
-            quick_reply = QuickReply(items=[QuickReplyButton(action=MessageAction(label="LINE Pay", text="選擇 LINE Pay")),
-                                            QuickReplyButton(action=MessageAction(label="郵局匯款", text="選擇 郵局匯款"))])
+            quick_reply = QuickReply(items=[
+                QuickReplyButton(action=MessageAction(label="LINE Pay", text="選擇 LINE Pay")),
+                QuickReplyButton(action=MessageAction(label="郵局匯款", text="選擇 郵局匯款"))
+            ])
             reply_message = TextSendMessage(
                 text=f"您選擇購買筆記 {note_code}，價格為 {price} 元。\n請選擇您的付款方式：",
                 quick_reply=quick_reply
@@ -185,33 +208,10 @@ def handle_text_message(event):
                 event.reply_token,
                 TextSendMessage(text="❌ 未找到該筆記編號，請確認後重新輸入。")
             )
-
-    # LINE Pay付款處理
-    if message_text == "選擇 LINE Pay":
-        linepay_image_url = f"https://{request.host}/static/images/linepay_qrcode.jpg"
-        text_message = TextSendMessage(
-            text=("✨ 感謝您的支持！\n\n"
-                  "📷 請掃描以下的 QR Code 完成付款：\n\n"
-                  "📤 完成付款後，請回傳付款截圖，我們將在確認款項後提供限時有效的下載連結給您！\n\n"
-                  "🌟 感謝您的支持與信任，期待您的購買！ 🛍️"),
-            quick_reply=get_quick_reply()
-        )
-
-        image_message = ImageSendMessage(
-            original_content_url=linepay_image_url,
-            preview_image_url=linepay_image_url
-        )
-        line_bot_api.reply_message(event.reply_token, [text_message, image_message])
-
-    # 郵局匯款付款處理
-    if message_text == "選擇 郵局匯款":
+    else:
+        # 默認回應
         reply_message = TextSendMessage(
-            text=("✨ 感謝您的支持！\n\n"
-                  "🏦郵局匯款\n\n"
-                  "銀行代碼：700\n"
-                  "帳號：0000023980362050\n\n"
-                  "📤 完成匯款後，請回傳付款截圖，我們將在確認款項後提供限時有效的下載連結給您！\n\n"
-                  "🌟 感謝您的支持，祝期末HIGH PASS！ 🎉"),
+            text="已收到您的訊息！我們會稍後回覆，感謝您的耐心等待 😊",
             quick_reply=get_quick_reply()
         )
         line_bot_api.reply_message(event.reply_token, reply_message)
