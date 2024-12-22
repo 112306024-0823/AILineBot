@@ -28,7 +28,9 @@ NOTES_PRICING = {
 
 # 初始化 Firebase
 try:
-    firebase_info = json.loads(os.getenv("FIREBASE_CREDENTIALS"))
+    firebase_info = json.loads(os.getenv("FIREBASE_CREDENTIALS", "{}"))
+    if not firebase_info:
+        raise ValueError("FIREBASE_CREDENTIALS is missing or empty.")
     cred = credentials.Certificate(firebase_info)
     firebase_admin.initialize_app(cred)
     db = firestore.client()
@@ -45,41 +47,41 @@ handler = WebhookHandler(os.getenv('CHANNEL_SECRET'))
 # 從環境變數中獲取 OpenAI API 金鑰
 openai.api_key = os.getenv("OPENAI_API_KEY")
 # 用戶狀態管理
-user_states = {}  # 用來存儲用戶的狀態
-# Firebase 用戶狀態操作
 def get_user_state(user_id):
-    """從 Firestore 獲取用戶狀態，默認為 'default'"""
-    doc = db.collection("user_states").document(user_id).get()
-    if doc.exists:
-        return doc.to_dict().get("state", "default")
+    try:
+        doc = db.collection("user_states").document(user_id).get()
+        if doc.exists:
+            return doc.to_dict().get("state", "default")
+    except Exception as e:
+        print(f"Error getting user state: {e}")
     return "default"
 
-
 def set_user_state(user_id, state):
-    """將用戶狀態更新到 Firestore"""
-    db.collection("user_states").document(user_id).set({
-        "state": state,
-        "last_updated": firestore.SERVER_TIMESTAMP
-    }, merge=True)
-
+    try:
+        db.collection("user_states").document(user_id).set({
+            "state": state,
+            "last_updated": firestore.SERVER_TIMESTAMP
+        }, merge=True)
+    except Exception as e:
+        print(f"Error setting user state: {e}")
 
 # 更新生成學霸小E回應的函數
 def generate_E_response(user_message):
     try:
         response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",  # 可以使用 "gpt-4" 來提高創意和多樣性
+            model="gpt-3.5-turbo",
             messages=[
                 {"role": "system", "content": 
-                    "你是學霸小E，你是幽默風趣且毒舌的學霸兼勸學專家、喜歡吐槽人、喜歡跟人聊天，也會給予好的讀書建議，最近期末將至，你專治那些臨時抱佛腳、偷懶或不想讀書的學生。每次回應不超過130字"},
-                {"role": "user", "content": user_message}  # 用戶的輸入
+                    "你是學霸小E，你是幽默風趣且毒舌的學霸兼勸學專家，最近期末將至，你專治那些臨時抱佛腳、偷懶或不想讀書的學生。每次回應不超過130字"},
+                {"role": "user", "content": user_message}
             ],
-            max_tokens=200,  # 設定最大 tokens 數量
-            temperature=0.85,  # 增加隨機性，讓回應更具多樣性
-            top_p=0.9  # 增加多樣性，讓回應更有創意
+            max_tokens=200,
+            temperature=0.85,
+            top_p=0.9
         )
-        return response.choices[0].message['content'].strip()  # 提取生成的回應
+        return response.choices[0].message['content'].strip()
     except Exception as e:
-        print(f"Error: {e}")
+        print(f"Error generating response: {e}")
         return "抱歉，我無法理解您的問題，請稍後再試。"
 
 # 註冊 UploadHandler
@@ -104,8 +106,19 @@ def callback():
         abort(400)
     return 'OK'
 
+# 快速回覆選項生成
+def get_quick_reply(user_state):
+    default_quick_reply = [
+        QuickReplyButton(action=MessageAction(label="找學霸小E談談心！", text="跟小E對話")),
+        QuickReplyButton(action=MessageAction(label="上傳筆記", text="我要上傳筆記")),
+        QuickReplyButton(action=MessageAction(label="找筆記", text="找筆記"))
+    ]
+    chat_quick_reply = [
+        QuickReplyButton(action=MessageAction(label="退出小E談話模式", text="退出小E模式"))
+    ]
+    return QuickReply(items=chat_quick_reply if user_state == "chat_with_xiaoE" else default_quick_reply)
 
-# 處理用戶訊息的邏輯
+# 處理用戶訊息邏輯
 @handler.add(MessageEvent, message=TextMessage)
 def handle_text_message(event):
     user_id = getattr(event.source, 'user_id', None)
@@ -117,32 +130,19 @@ def handle_text_message(event):
         return
 
     message_text = event.message.text.strip()
-    user_states = get_user_state(user_id)
+    user_state = get_user_state(user_id)
 
-    # 快速回覆選項
-    def get_quick_reply():
-        default_quick_reply = [
-            QuickReplyButton(action=MessageAction(label="找學霸小E談談心！", text="跟小E對話")),
-            QuickReplyButton(action=MessageAction(label="上傳筆記", text="我要上傳筆記")),
-            QuickReplyButton(action=MessageAction(label="找筆記", text="找筆記"))
-        ]
-        if user_states[user_id] == "chat_with_xiaoE":
-            return QuickReply(items=[
-                QuickReplyButton(action=MessageAction(label="退出小E談話模式", text="退出小E模式"))
-            ])
-        return QuickReply(items=default_quick_reply)
-
-    # 處理狀態邏輯
-    if user_states == "default":
+    if user_state == "default":
         if message_text == "跟小E對話":
             set_user_state(user_id, "chat_with_xiaoE")
             reply_message = TextSendMessage(
                 text="你好，我是學霸小E，歡迎跟我聊天！",
-                quick_reply=get_quick_reply()
+                quick_reply=get_quick_reply("chat_with_xiaoE")
             )
         elif message_text == "我要上傳筆記":
+            upload_url = f"https://{os.getenv('APP_HOST', 'localhost')}/upload?user_id={user_id}"
             quick_reply = QuickReply(items=[
-                QuickReplyButton(action=URIAction(label="點擊上傳檔案", uri=f"https://{request.host}/upload?user_id={user_id}"))
+                QuickReplyButton(action=URIAction(label="點擊上傳檔案", uri=upload_url))
             ])
             reply_message = TextSendMessage(
                 text="請點擊下方按鈕上傳檔案：", quick_reply=quick_reply
@@ -159,13 +159,17 @@ def handle_text_message(event):
                         QuickReplyButton(action=MessageAction(label="郵局匯款", text="選擇 郵局匯款"))
                     ])
                     reply_message = TextSendMessage(
-                        text=f"您選擇購買筆記 {note_code}，價格為 {price} 元。\n請選擇您的付款方式：",
+                        text=f"您選擇購買筆記 {note_code}，價格為 {price} 元。請選擇您的付款方式：",
                         quick_reply=quick_reply
                     )
                 else:
-                    reply_message = TextSendMessage(text="❌ 未找到該筆記編號，請確認後重新輸入。")
+                    reply_message = TextSendMessage(
+                        text="❌ 未找到該筆記編號，請確認後重新輸入。"
+                    )
             else:
-                reply_message = TextSendMessage(text="❌ 請提供有效的筆記編號，例如：購買筆記 A01。")
+                reply_message = TextSendMessage(
+                    text="❌ 請提供有效的筆記編號，例如：購買筆記 A01。"
+                )
         elif message_text == "選擇 LINE Pay":
             linepay_image_url = f"https://{request.host}/static/images/linepay_qrcode.jpg"
             text_message = TextSendMessage(
@@ -173,7 +177,7 @@ def handle_text_message(event):
                       "📷 請掃描以下的 QR Code 完成付款：\n\n"
                       "📤 完成付款後，請回傳付款截圖，我們將在確認款項後提供限時有效的下載連結給您！\n\n"
                       "🌟 感謝您的支持與信任，期待您的購買！ 🛍️"),
-                quick_reply=get_quick_reply()
+                quick_reply=get_quick_reply(user_state)
             )
             image_message = ImageSendMessage(
                 original_content_url=linepay_image_url,
@@ -189,29 +193,28 @@ def handle_text_message(event):
                       "帳號：0000023980362050\n\n"
                       "📤 完成匯款後，請回傳付款截圖，我們將在確認款項後提供限時有效的下載連結給您！\n\n"
                       "🌟 感謝您的支持，祝期末HIGH PASS！ 🎉"),
-                quick_reply=get_quick_reply()
+                quick_reply=get_quick_reply(user_state)
             )
         else:
             reply_message = TextSendMessage(
                 text="已收到您的訊息！我們會稍後回覆，感謝您的耐心等待 😊",
-                quick_reply=get_quick_reply()
+                quick_reply=get_quick_reply("default")
             )
         line_bot_api.reply_message(event.reply_token, reply_message)
 
-    elif user_states == "chat_with_xiaoE":
+    elif user_state == "chat_with_xiaoE":
         if message_text == "退出小E模式":
             set_user_state(user_id, "default")
             reply_message = TextSendMessage(
                 text="已退出學霸小E模式，趕快去讀書啦！",
-                quick_reply=get_quick_reply()
+                quick_reply=get_quick_reply("default")
             )
         else:
             reply_content = generate_E_response(message_text)
             reply_message = TextSendMessage(
-                text=reply_content, quick_reply=get_quick_reply()
+                text=reply_content, quick_reply=get_quick_reply("chat_with_xiaoE")
             )
         line_bot_api.reply_message(event.reply_token, reply_message)
-
 
 @handler.add(MessageEvent, message=ImageMessage)
 def handle_image_message(event):
@@ -220,7 +223,6 @@ def handle_image_message(event):
         text="✅ 已收到您的付款證明。我們將在確認款項後提供下載連結！"
     )
     line_bot_api.reply_message(reply_token, confirmation_message)
-
 
 if __name__ == "__main__":
     port = int(os.environ.get('PORT', 5000))
