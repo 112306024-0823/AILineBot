@@ -140,9 +140,9 @@ def handle_text_message(event):
                 quick_reply=get_quick_reply("chat_with_xiaoE")
             )
         elif message_text == "我要上傳筆記":
-            upload_url = f"https://{os.getenv('APP_HOST', 'localhost')}/upload?user_id={user_id}"
             quick_reply = QuickReply(items=[
-                QuickReplyButton(action=URIAction(label="點擊上傳檔案", uri=upload_url))
+                QuickReplyButton(action=URIAction(label="點擊上傳檔案", uri=f"https://{request.host}/upload"))
+
             ])
             reply_message = TextSendMessage(
                 text="請點擊下方按鈕上傳檔案：", quick_reply=quick_reply
