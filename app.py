@@ -16,6 +16,7 @@ import firebase_admin
 from firebase_admin import credentials, firestore
 from threading import Thread
 from review_monitor import monitor_review_status  # 假設監聽邏輯放在 review_monitor.py
+from firebase_utils import db  # 引入 Firestore 客戶端
 
 # 初始化環境變數檢查
 check_environment_variables()
@@ -28,18 +29,6 @@ NOTES_PRICING = {
     "A05": 50
 }
 
-# 初始化 Firebase
-try:
-    firebase_info = json.loads(os.getenv("FIREBASE_CREDENTIALS", "{}"))
-    if not firebase_info:
-        raise ValueError("FIREBASE_CREDENTIALS is missing or empty.")
-    cred = credentials.Certificate(firebase_info)
-    firebase_admin.initialize_app(cred)
-    db = firestore.client()
-    print("Firebase 初始化成功")
-except Exception as e:
-    print(f"Firebase 初始化失敗：{e}")
-    raise
 
 # 初始化 Flask 和 LINE API
 app = Flask(__name__)

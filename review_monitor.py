@@ -1,9 +1,10 @@
 from firebase_admin import firestore
 from linebot.models import FlexSendMessage
 from notifications import NotificationHandler
+from firebase_utils import db  # 引入 Firestore 客戶端
+
 def monitor_review_status(line_bot_api):
     """監聽 Firebase 中的筆記審核狀態變更"""
-    db = firestore.client()
     notes_ref = db.collection("notes")
 
     # 設置監聽器

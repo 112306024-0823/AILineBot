@@ -1,7 +1,7 @@
 from firebase_admin import firestore
 from datetime import datetime
+from firebase_utils import db  # 引入 Firestore 客戶端
 
-db = firestore.client()
 
 MAX_HISTORY_LENGTH = 10  # 最大對話歷史長度
 
