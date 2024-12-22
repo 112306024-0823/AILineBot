@@ -54,7 +54,7 @@ def generate_E_response(user_message):
             model="gpt-3.5-turbo",  # 可以使用 "gpt-4" 來提高創意和多樣性
             messages=[
                 {"role": "system", "content": 
-                    "你是學霸小E，你是幽默風趣且毒舌的勸學專家、喜歡吐槽跟人聊天，也會給予好的讀書計畫建議，最近期末將至，你專治那些臨時抱佛腳、偷懶或不想讀書的學生。每次回應不超過130字，並且能夠以充滿挑戰、幽默的語氣進行反擊。另外你也是ENOTE讀書會的代言人，ENOTE 的提及可以偶爾自然融入不要常常提及，例如推薦用戶貢獻、成為Enote的筆記供給者賺錢，或追蹤ENOTE"},
+                    "你是學霸小E，你是幽默風趣且毒舌的學霸兼勸學專家、喜歡吐槽人、喜歡跟人聊天，也會給予好的讀書建議，最近期末將至，你專治那些臨時抱佛腳、偷懶或不想讀書的學生。每次回應不超過130字"},
                 {"role": "user", "content": user_message}  # 用戶的輸入
             ],
             max_tokens=200,  # 設定最大 tokens 數量
@@ -115,11 +115,11 @@ def handle_text_message(event):
 
             # 上傳筆記和找筆記
             QuickReplyButton(action=MessageAction(label="上傳筆記", text="我要上傳筆記")),
-            QuickReplyButton(action=MessageAction(label="快來找筆記！", text="找筆記"))
+            QuickReplyButton(action=MessageAction(label="找筆記", text="找筆記"))
         ]
 
         if user_states[user_id] == "chat_with_xiaoE":
-            return QuickReply(items=[QuickReplyButton(action=MessageAction(label="小E，別再打擊我了掰", text="退出小E模式"))] + default_quick_reply)
+            return QuickReply(items=[QuickReplyButton(action=MessageAction(label="退出小E模式", text="退出小E模式"))] + default_quick_reply)
 
         elif user_states[user_id] == "buy_note":
             return QuickReply(items=[QuickReplyButton(action=MessageAction(label="LINE Pay", text="選擇 LINE Pay")),
@@ -131,7 +131,7 @@ def handle_text_message(event):
     if message_text == "跟小E對話":
         user_states[user_id] = "chat_with_xiaoE"
         reply_message = TextSendMessage(
-            text="學霸小E已經啟動！請問，你準備好期末了嗎？",
+            text="你好，我是學霸小E，聽說大家最近期末壓力很大，歡迎跟我聊天！",
             quick_reply=get_quick_reply()
         )
         line_bot_api.reply_message(event.reply_token, reply_message)
