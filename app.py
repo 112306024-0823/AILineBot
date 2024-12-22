@@ -141,7 +141,8 @@ def handle_text_message(event):
             )
         elif message_text == "我要上傳筆記":
             quick_reply = QuickReply(items=[
-                QuickReplyButton(action=URIAction(label="點擊上傳檔案", uri=f"https://{request.host}/upload"))
+                QuickReplyButton(action=URIAction(label="點擊上傳檔案", uri=f"https://{request.host}/upload?user_id={user_id}")),
+                QuickReplyButton(action=MessageAction(label="找筆記", text="找筆記"))
 
             ])
             reply_message = TextSendMessage(
