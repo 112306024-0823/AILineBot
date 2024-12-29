@@ -11,6 +11,15 @@ from datetime import datetime
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
+def check_environment_variables():
+    """檢查必要的環境變數是否已設置"""
+    required_env_vars = ["GOOGLE_DRIVE_CREDENTIALS", "FIREBASE_CREDENTIALS", "CHANNEL_ACCESS_TOKEN", "CHANNEL_SECRET"]
+    missing_vars = [var for var in required_env_vars if not os.getenv(var)]
+    if missing_vars:
+        raise EnvironmentError(f"缺少以下環境變數：{', '.join(missing_vars)}")
+    logger.info("所有必要的環境變數已正確設置。")
+
+
 def upload_file_to_google_drive(file_path, file_name, folder_id):
     """將檔案上傳到 Google Drive，並返回下載連結"""
     try:
