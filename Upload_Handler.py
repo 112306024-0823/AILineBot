@@ -5,6 +5,8 @@ from utils import background_upload_and_save
 import os
 import json
 from flexmessage import create_upload_success_flex
+from datetime import datetime  # 引入時間模組
+
 
 class UploadHandler:
     ALLOWED_EXTENSIONS = {"pdf", "png", "jpg", "jpeg"}
@@ -32,6 +34,12 @@ class UploadHandler:
                 subject = request.form.get("subject")
                 grade = request.form.get("grade")
                 year = request.form.get("year")
+                price = request.form.get("price")
+                
+                # 獲取上傳時間
+                upload_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")  # 格式化時間戳
+
+            
 
                 # 驗證表單數據
                 if not subject or not grade or not year:
@@ -45,11 +53,12 @@ class UploadHandler:
 
                     # 後台處理檔案上傳
                     Thread(target=background_upload_and_save, args=(
-                        user_id, year, filename, file_path, subject, grade, self.folder_id, self.line_bot_api
+                        user_id, year, filename, file_path, subject, grade, price, upload_time, self.folder_id, self.line_bot_api
                     )).start()
 
                     # 發送 Flex Message 通知用戶
-                    flex_message = create_upload_success_flex(filename, subject, grade)
+                    flex_message = create_upload_success_flex(filename, year,subject, grade,price)
+
                     try:
                         self.line_bot_api.push_message(user_id, flex_message)
                     except Exception as e:

@@ -2,7 +2,7 @@ from linebot.models import FlexSendMessage
 from flask import url_for, request
 
 
-def create_upload_success_flex(file_name, subject, grade):
+def create_upload_success_flex(file_name,year, subject, grade,price):
     image_url = url_for('static', filename='images/Enote_Logo.png', _external=True)
 
     """建立 Flex Message 用於通知檔案上傳成功"""
@@ -63,6 +63,25 @@ def create_upload_success_flex(file_name, subject, grade):
                                     {"type": "text", "text": grade, "wrap": True, "color": "#666666", "size": "sm", "flex": 4}
                                 ]
                             },
+
+                            {
+                                "type": "box",
+                                "layout": "baseline",
+                                "contents": [
+                                    {"type": "text", "text": "年級", "color": "#aaaaaa", "size": "sm", "flex": 2},
+                                    {"type": "text", "text": year, "wrap": True, "color": "#666666", "size": "sm", "flex": 4}
+                                ]
+                            },
+
+                            {
+                                "type": "box",
+                                "layout": "baseline",
+                                "contents": [
+                                    {"type": "text", "text": "年級", "color": "#aaaaaa", "size": "sm", "flex": 2},
+                                    {"type": "text", "text": price, "wrap": True, "color": "#666666", "size": "sm", "flex": 4}
+                                ]
+                            },
+
                             {
                                 "type": "box",
                                 "layout": "baseline",
@@ -78,7 +97,12 @@ def create_upload_success_flex(file_name, subject, grade):
         }
     )
 
-def create_review_success_flex(file_name, subject, grade, file_url):
+
+
+
+
+#通知用戶已經成功上架
+def create_review_success_flex(file_name, subject, grade, price, file_url):
     image_url = url_for('static', filename='images/Enote_Logo.png', _external=True)
 
     """建立 Flex Message 用於通知審核成功"""
@@ -148,6 +172,17 @@ def create_review_success_flex(file_name, subject, grade, file_url):
                                     {"type": "text", "text": grade, "wrap": True, "color": "#666666", "size": "sm", "flex": 4}
                                 ]
                             },
+
+                            {
+                                "type": "box",
+                                "layout": "baseline",
+                                "contents": [
+                                    {"type": "text", "text": "年級", "color": "#aaaaaa", "size": "sm", "flex": 2},
+                                    {"type": "text", "text": price, "wrap": True, "color": "#666666", "size": "sm", "flex": 4}
+                                ]
+                            },
+
+
                             {
                                 "type": "button",
                                 "style": "primary",

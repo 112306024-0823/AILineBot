@@ -11,10 +11,21 @@
         <h1>上傳筆記檔案</h1>
 
         <!-- 注意文字 -->
-        <div class="notice-box">
+        <div class="content-section notice-box">
             <p>
-                <strong>📚✨ 為了更了解市場需求，我們目前正針對大學生、研究所學生展開市場測試，希望您能協助分享準備考試、上課整理的筆記，讓這些優質內容幫助更多學生。</strong>
+                <strong>📚✨ 為了更了解市場需求，Enote目前正針對大學生、研究所學生展開市場測試，希望您能協助分享準備考試、上課整理的筆記，讓這些優質內容幫助更多學生。</strong>
             </p>
+            <h3>📘 合作模式</h3>
+            <p>您可以將筆記上傳至Enote平台，並填寫期望價格（期望定價並不等於最終定價，價格將根據市場供需調整）。</p>
+            <p>我們的團隊將盡快審核您的筆記內容。如筆記審核成功，平台將通知您，並將筆記上架到Enote供用戶購買。</p>
+            
+            <h3>💰 分潤模式</h3>
+            <p>Enote平台將從每筆成交的筆記價格中抽取<strong>5%</strong>作為平台服務費，其餘<strong>95%</strong>將作為您的收益。</p>
+            
+            <h3>📩 通知與款項匯款</h3>
+            <p>📱若筆記交易成功，我們會第一時間在官方Line帳號通知您，並請您提供收款帳戶資訊。</p>
+            <p>💳所有收益款項將在成交後的兩周內匯入您提供的收款帳戶。</p>
+            
             <p>
                 <strong>⚠️ 另為確保筆記內容能合法且順利地上架，我們特別提醒您：</strong>
             </p>
@@ -22,9 +33,11 @@
                 <li>📌 若筆記中包含直接抄錄或複製補習班、學校教材或講義的內容，可能涉及版權問題，建議以個人整理與歸納為主。</li>
             </ul>
             <p>
-                <strong>📜 提交筆記即表示您同意授權 ENOTE 團隊使用並上架您所提供的筆記內容。</strong>
+                <strong>📜 提交筆記即表示您同意授權 Enote 團隊使用並上架您所提供的筆記內容。</strong>
             </p>
         </div>
+        
+        
 
         <!-- 上傳表單 -->
         <form method="post" enctype="multipart/form-data">
@@ -39,9 +52,13 @@
                 <option value="其他">其他</option>
             </select>
 
-            <label for="subject">科目名稱_章節名稱</label>
-            <input type="text" id="subject" name="subject" placeholder="例如：統計學_機率分配模型、經濟學(一)、微積分甲(一)" required>
-            <span class="help-text">* 可自行填寫科目、章節名稱，有授課老師也可註明</span>
+            <label for="subject">科目名稱_章節名稱_期望定價</label>
+            <input type="text" id="subject" name="subject" placeholder="例如：統計學_機率_50元、經濟學(一)_150-200元、微積分甲(一)" required>
+            <span class="help-text">* 可自行填寫科目、章節名稱，課堂的授課老師也可註明</span>
+
+            <label for="subject">期望定價</label>
+            <input type="text" id="price" name="price" placeholder="例如：150-300元" required>
+            <span class="help-text">*可填寫價格區間</span>
             
             <label for="year">筆記撰寫年份</label>
             <select id="year" name="year" required>

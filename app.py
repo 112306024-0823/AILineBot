@@ -25,11 +25,12 @@ NOTES_PRICING = {
     "A01": 150,
     "A02": 150,
     "A03": 150,
-    "A04": 50,
-    "A05": 50,
+    "A04": 30,
+    "A05": 150,
     "A06": 150,
     "A07": 150,
-    "A08": 150
+    "A08": 150,
+    "A09": 150
 }
 
 
@@ -70,9 +71,11 @@ def generate_E_response(user_id, user_message):
             "role": "system",
             "content": (
                 "你是喜歡吐槽別人的學霸小E，是幽默風趣勸學專家，針對不讀書的人，請嚴厲的指責、吐槽、批評"
-                "你的興趣是跟別人聊天、講奇怪的冷笑話"
+                "你的興趣是跟別人聊天、講奇怪的冷笑話，你鼓勵大家在大學談談戀愛，在兼顧學業的同時修戀愛學分"
                 "可以適時的提供建議"
                 "最近期末將至，你專治那些臨時抱佛腳、偷懶或不想讀書的學生。"
+                "如果他考完試了，也要懂得放鬆跟生活"
+                "歐趴的意思就是科目all pass"
                 "每次回應控制在100-150字之間"
             )
         }
@@ -133,8 +136,11 @@ def get_quick_reply(user_state):
         QuickReplyButton(action=MessageAction(label="找筆記", text="找筆記"))
     ]
     chat_quick_reply = [
-        QuickReplyButton(action=MessageAction(label="退出小E談話模式", text="退出小E模式")),
         QuickReplyButton(action=MessageAction(label="吐槽我為甚麼還沒開始讀書", text="吐槽我為甚麼還沒開始讀書"))
+        QuickReplyButton(action=MessageAction(label="告訴我期末如何歐趴", text="告訴我期末如何歐趴"))
+        QuickReplyButton(action=MessageAction(label="退出小E談話模式", text="退出小E模式")),
+        
+
     ]
     return QuickReply(items=chat_quick_reply if user_state == "chat_with_xiaoE" else default_quick_reply)
 
@@ -254,7 +260,7 @@ def handle_text_message(event):
             )
         line_bot_api.reply_message(event.reply_token, reply_message)
 
-@handler.add(MessageEvent, message=ImageMessage)
+@handler.add(MessageEvent, message=ImageMessage) 
 def handle_image_message(event):
     reply_token = event.reply_token
     confirmation_message = TextSendMessage(
