@@ -186,11 +186,11 @@ def handle_text_message(event):
                     )
                 else:
                     reply_message = TextSendMessage(
-                        text="❌ 未找到該筆記編號，請確認後重新輸入。"
+                        text="🌟 未找到該筆記編號，請確認後重新輸入。"
                     )
             else:
                 reply_message = TextSendMessage(
-                    text="❌ 請提供有效的筆記編號，例如：購買筆記 A01。"
+                    text="🌟 請提供有效的筆記編號，例如：購買筆記 A01。"
                 )
         elif message_text == "選擇 LINE Pay":
             linepay_image_url = f"https://{request.host}/static/images/linepay_qrcode.jpg"
@@ -236,10 +236,16 @@ def handle_text_message(event):
 
         elif message_text == "找筆記":
             set_user_state(user_id, "default")
+            quick_reply=get_quick_reply("default")
 
-
+ 
         elif "購買筆記" in message_text:
             set_user_state(user_id, "default")
+            quick_reply=get_quick_reply("default")
+
+        elif "上傳筆記" in message_text:
+            set_user_state(user_id, "default")
+            quick_reply=get_quick_reply("default")
 
         else:
             reply_content = generate_E_response(user_id, message_text)
