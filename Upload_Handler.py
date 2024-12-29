@@ -59,7 +59,7 @@ class UploadHandler:
                     )).start()
 
                     # 發送 Flex Message 通知用戶
-                    flex_message = create_upload_success_flex(filename, subject, grade, price)
+                    flex_message = create_upload_success_flex(filename, year, subject, grade, price)
 
                     try:
                         self.line_bot_api.push_message(user_id, flex_message)
