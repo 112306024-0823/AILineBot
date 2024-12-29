@@ -59,7 +59,7 @@ def save_file_metadata(user_id, file_name, file_url, subject="", grade="", year=
         logger.error(f"儲存文件元數據失敗：{e}")
         raise Exception(f"儲存文件元數據失敗：{e}")
 
-def background_upload_and_save(user_id, year, file_name, file_path, subject, grade, price, folder_id, line_bot_api):
+def background_upload_and_save(user_id, year, file_name, file_path, subject, grade, price, folder_id,upload_time, line_bot_api):
     """後台處理文件上傳到 Google Drive 並儲存元數據到 Firestore"""
     try:
         logger.info(f"開始處理文件：{file_name}，用戶：{user_id}")
