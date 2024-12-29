@@ -39,7 +39,7 @@ def upload_file_to_google_drive(file_path, file_name, folder_id):
         logger.error(f"Google Drive 上傳失敗：{e}")
         raise Exception(f"Google Drive 上傳失敗：{e}")
 
-def save_file_metadata(user_id, file_name, file_url, subject="", grade="", year=""):
+def save_file_metadata(user_id, file_name, file_url, subject="", grade="", year="",price=""):
     """儲存文件元數據到 Firebase Firestore"""
     try:
         from firebase_admin import firestore
@@ -51,6 +51,7 @@ def save_file_metadata(user_id, file_name, file_url, subject="", grade="", year=
             "subject": subject,
             "grade": grade,
             "year": year,
+            "price": price,
             "status": "審核中"  # 默認狀態為審核中
         })
         logger.info(f"文件元數據已成功儲存：{file_name}")
@@ -58,14 +59,14 @@ def save_file_metadata(user_id, file_name, file_url, subject="", grade="", year=
         logger.error(f"儲存文件元數據失敗：{e}")
         raise Exception(f"儲存文件元數據失敗：{e}")
 
-def background_upload_and_save(user_id, year, file_name, file_path, subject, grade, folder_id, line_bot_api):
+def background_upload_and_save(user_id, year, file_name, file_path, subject, grade, price, folder_id, line_bot_api):
     """後台處理文件上傳到 Google Drive 並儲存元數據到 Firestore"""
     try:
         logger.info(f"開始處理文件：{file_name}，用戶：{user_id}")
         # 將檔案上傳到 Google Drive
         file_url = upload_file_to_google_drive(file_path, file_name, folder_id)
         # 儲存元數據到 Firestore
-        save_file_metadata(user_id, file_name, file_url, subject, grade, year)
+        save_file_metadata(user_id, file_name, file_url, subject, grade, year, price)
         # 通知用戶上傳成功
         line_bot_api.push_message(
             user_id,
