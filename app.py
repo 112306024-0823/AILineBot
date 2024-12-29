@@ -224,6 +224,8 @@ def handle_text_message(event):
             )
         line_bot_api.reply_message(event.reply_token, reply_message)
 
+    
+
     elif user_state == "chat_with_xiaoE":
         if message_text == "退出小E模式":
             set_user_state(user_id, "default")
@@ -231,6 +233,14 @@ def handle_text_message(event):
                 text="已退出學霸小E模式，趕快去讀書啦！",
                 quick_reply=get_quick_reply("default")
             )
+
+        elif message_text == "找筆記":
+            set_user_state(user_id, "default")
+
+
+        elif "購買筆記" in message_text:
+            set_user_state(user_id, "default")
+
         else:
             reply_content = generate_E_response(user_id, message_text)
             reply_message = TextSendMessage(
