@@ -5,8 +5,12 @@ from utils import background_upload_and_save
 import os
 import json
 from flexmessage import create_upload_success_flex
-from datetime import datetime  # 引入時間模組
+from datetime import datetime
+import logging
 
+# 設定日誌
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
 
 class UploadHandler:
     ALLOWED_EXTENSIONS = {"pdf", "png", "jpg", "jpeg"}
@@ -37,12 +41,10 @@ class UploadHandler:
                 price = request.form.get("price")
                 
                 # 獲取上傳時間
-                upload_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")  # 格式化時間戳
-
-            
+                upload_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
                 # 驗證表單數據
-                if not subject or not grade or not year:
+                if not subject or not grade or not year or not price:
                     return jsonify({"status": "error", "message": "請填寫完整訊息！"}), 400
 
                 # 驗證文件格式
@@ -57,7 +59,7 @@ class UploadHandler:
                     )).start()
 
                     # 發送 Flex Message 通知用戶
-                    flex_message = create_upload_success_flex(filename, year,subject, grade,price)
+                    flex_message = create_upload_success_flex(filename, subject, grade, price)
 
                     try:
                         self.line_bot_api.push_message(user_id, flex_message)
