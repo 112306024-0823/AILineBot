@@ -68,7 +68,7 @@ def create_upload_success_flex(file_name,year, subject, grade,price):
                                 "type": "box",
                                 "layout": "baseline",
                                 "contents": [
-                                    {"type": "text", "text": "年級", "color": "#aaaaaa", "size": "sm", "flex": 2},
+                                    {"type": "text", "text": "筆記年份", "color": "#aaaaaa", "size": "sm", "flex": 2},
                                     {"type": "text", "text": year, "wrap": True, "color": "#666666", "size": "sm", "flex": 4}
                                 ]
                             },
@@ -77,7 +77,7 @@ def create_upload_success_flex(file_name,year, subject, grade,price):
                                 "type": "box",
                                 "layout": "baseline",
                                 "contents": [
-                                    {"type": "text", "text": "年級", "color": "#aaaaaa", "size": "sm", "flex": 2},
+                                    {"type": "text", "text": "期望定價", "color": "#aaaaaa", "size": "sm", "flex": 2},
                                     {"type": "text", "text": price, "wrap": True, "color": "#666666", "size": "sm", "flex": 4}
                                 ]
                             },
