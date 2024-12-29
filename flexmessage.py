@@ -12,7 +12,7 @@ def create_upload_success_flex(file_name, subject, grade):
             "type": "bubble",
             "hero": {
                 "type": "image",
-                "url": image_url,  # 使用生成的圖片 URL
+                "url": image_url,  # 使用生成的圖片 
                 "size": "full",
                 "aspectRatio": "20:10",
                 "aspectMode": "cover"
@@ -101,7 +101,7 @@ def create_review_success_flex(file_name, subject, grade, file_url):
                         "type": "text",
                         "text": "審核成功！",
                         "weight": "bold",
-      66                  "size": "xl",
+                        "size": "xl",
                         "margin": "md",
                         "align": "center",
                         "color": "#1DB446"

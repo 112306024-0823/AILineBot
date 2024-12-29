@@ -159,6 +159,7 @@ def handle_text_message(event):
                 text="你好，我是學霸小E，歡迎跟我聊天！",
                 quick_reply=get_quick_reply("chat_with_xiaoE")
             )
+
         elif message_text == "我要上傳筆記":
             quick_reply = QuickReply(items=[
                 QuickReplyButton(action=URIAction(label="點擊上傳檔案", uri=f"https://{request.host}/upload?user_id={user_id}")),
