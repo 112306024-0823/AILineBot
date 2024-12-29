@@ -101,7 +101,7 @@ def create_review_success_flex(file_name, subject, grade, file_url):
                         "type": "text",
                         "text": "審核成功！",
                         "weight": "bold",
-                        "size": "xl",
+      66                  "size": "xl",
                         "margin": "md",
                         "align": "center",
                         "color": "#1DB446"

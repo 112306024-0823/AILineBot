@@ -7,7 +7,7 @@ import json
 from flexmessage import create_upload_success_flex
 
 class UploadHandler:
-    ALLOWED_EXTENSIONS = {"pdf", "png", "jpg", "jpeg", "doc", "docx"}
+    ALLOWED_EXTENSIONS = {"pdf", "png", "jpg", "jpeg"}
 
     def __init__(self, upload_folder="uploads", line_bot_api=None, folder_id=None):
         self.upload_folder = upload_folder
