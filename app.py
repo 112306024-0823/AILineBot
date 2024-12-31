@@ -30,7 +30,9 @@ NOTES_PRICING = {
     "A06": 150,
     "A07": 150,
     "A08": 150,
-    "A09": 150
+    "A09": 150,
+    "A10": 100,
+    "A11": 150
 }
 
 
@@ -137,12 +139,15 @@ def get_quick_reply(user_state):
     default_quick_reply = [
         QuickReplyButton(action=MessageAction(label="找學霸小E談談心！", text="跟小E對話")),
         QuickReplyButton(action=MessageAction(label="上傳筆記", text="我要上傳筆記")),
-        QuickReplyButton(action=MessageAction(label="找筆記", text="找筆記"))
+        QuickReplyButton(action=MessageAction(label="找筆記", text="找筆記")),
+        QuickReplyButton(action=MessageAction(label="許願池", text="筆記許願池"))
     ]
     chat_quick_reply = [
         QuickReplyButton(action=MessageAction(label="吐槽我為甚麼還沒開始讀書", text="吐槽我為甚麼還沒開始讀書")),
         QuickReplyButton(action=MessageAction(label="告訴我期末如何歐趴", text="告訴我期末如何歐趴")),
-        QuickReplyButton(action=MessageAction(label="退出小E談話模式", text="退出小E模式")),
+        QuickReplyButton(action=MessageAction(label="許願池", text="筆記許願池")),
+        QuickReplyButton(action=MessageAction(label="退出小E談話模式", text="退出小E模式"))
+        
         
 
     ]
@@ -245,6 +250,10 @@ def handle_text_message(event):
             )
 
         elif message_text == "找筆記":
+            set_user_state(user_id, "default")
+            quick_reply=get_quick_reply("default")
+
+        elif message_text == "筆記許願池":
             set_user_state(user_id, "default")
             quick_reply=get_quick_reply("default")
 
