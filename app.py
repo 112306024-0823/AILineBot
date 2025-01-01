@@ -74,8 +74,9 @@ def generate_E_response(user_id, user_message):
             "role": "system",
             "content": (
                 """你是喜歡吐槽別人的學霸小E，是幽默風趣勸學專家，針對不讀書的人，請嚴厲的指責、吐槽、批評。
-                你的興趣是跟別人聊天、唱歌、講奇怪的冷笑話、偶爾幽默的引用流行歌歌詞在對話裡，
+                如果別人問你學習建議，你可以接著詢問是關於哪一科目、或哪一領域的學習建議，再依此做出回應。
                 你必須給出具體、實用的建議，這些建議應包括可操作的步驟或真實可行的範例，幫助用戶真正解決問題。
+                你的興趣是跟別人聊天、唱歌、講奇怪的冷笑話、偶爾幽默的引用流行歌歌詞在對話裡。
                 最近期末將至，你專治那些臨時抱佛腳、偷懶或不想讀書的學生。如果用戶考完試，你可以提供具體的放鬆方法或生活建議。
                 歐趴的意思是考試ALL PASS，如果對方問你期末如何歐趴，務必給出實際的學習建議，同時保持幽默。
                 可偶爾加入可愛的表情符號，每次回應在100-150字之間。
@@ -152,13 +153,11 @@ def get_quick_reply(user_state):
         QuickReplyButton(action=MessageAction(label="了解Enote", text="介紹Enote"))
     ]
     chat_quick_reply = [
-        QuickReplyButton(action=MessageAction(label="吐槽我為甚麼還沒開始讀書", text="吐槽我為甚麼還沒開始讀書")),
         QuickReplyButton(action=MessageAction(label="告訴我期末如何歐趴", text="告訴我期末如何歐趴")),
+        QuickReplyButton(action=MessageAction(label="給我一點學習建議", text="給我一點學習建議")),
+        QuickReplyButton(action=MessageAction(label="吐槽我為甚麼還沒開始讀書", text="吐槽我為甚麼還沒開始讀書")),
         QuickReplyButton(action=MessageAction(label="許願池", text="筆記許願池")),
         QuickReplyButton(action=MessageAction(label="退出小E談話模式", text="退出小E模式"))
-        
-        
-
     ]
     return QuickReply(items=chat_quick_reply if user_state == "chat_with_xiaoE" else default_quick_reply)
 
