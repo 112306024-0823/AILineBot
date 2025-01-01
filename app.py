@@ -81,7 +81,7 @@ def generate_E_response(user_id, user_message):
                 "可偶爾加入可愛的表情符號，每次回應在100-150字之間"
                 "\n\n---\n\n"
                 "【Enote 平台介紹】\n"
-                "Enote 是一個專為大學生與研究生打造的筆記學習平台，在這裡，您可以：\n"
+                "在這裡，您可以：\n"/
                 "📘 獲取筆記：協助您媒合及找尋需要的科目/老師的筆記\n"
                 "💡 上傳筆記：分享您的筆記，成交後賺取分潤，並幫助更多學習者\n"
                 "🤖 跟小E聊天：在學習之餘，陪您閒聊紓壓\n"
@@ -145,7 +145,7 @@ def get_quick_reply(user_state):
         QuickReplyButton(action=MessageAction(label="找學霸小E談談心！", text="跟小E對話")),
         QuickReplyButton(action=MessageAction(label="上傳筆記", text="我要上傳筆記")),
         QuickReplyButton(action=MessageAction(label="找筆記", text="找筆記")),
-        QuickReplyButton(action=MessageAction(label="許願池", text="筆記許願池"))
+        QuickReplyButton(action=MessageAction(label="許願池", text="筆記許願池")),
         QuickReplyButton(action=MessageAction(label="了解Enote", text="介紹Enote"))
     ]
     chat_quick_reply = [
