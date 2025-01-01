@@ -141,6 +141,7 @@ def get_quick_reply(user_state):
         QuickReplyButton(action=MessageAction(label="上傳筆記", text="我要上傳筆記")),
         QuickReplyButton(action=MessageAction(label="找筆記", text="找筆記")),
         QuickReplyButton(action=MessageAction(label="許願池", text="筆記許願池"))
+        QuickReplyButton(action=MessageAction(label="了解Enote", text="介紹Enote"))
     ]
     chat_quick_reply = [
         QuickReplyButton(action=MessageAction(label="吐槽我為甚麼還沒開始讀書", text="吐槽我為甚麼還沒開始讀書")),
