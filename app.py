@@ -240,7 +240,7 @@ def handle_text_message(event):
             )
         else:
             reply_message = TextSendMessage(
-                #text="已收到您的訊息！我們會稍後回覆，感謝您的耐心等待 😊",
+                text=" ",
                 quick_reply=get_quick_reply("default")
             )
         line_bot_api.reply_message(event.reply_token, reply_message)
