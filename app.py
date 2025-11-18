@@ -1,6 +1,5 @@
 from flask import Flask, request, abort, jsonify
 import json
-import openai
 from chat_history import save_chat_history, load_chat_history
 
 from linebot import LineBotApi, WebhookHandler
@@ -12,11 +11,7 @@ from linebot.models import (
 from Upload_Handler import UploadHandler
 from utils import check_environment_variables
 import os
-import firebase_admin
-from firebase_admin import credentials, firestore
-from threading import Thread
-from review_monitor import monitor_review_status  # 假設監聽邏輯放在 review_monitor.py
-from firebase_utils import db  # 引入 Firestore 客戶端
+from threading import Lock
 
 # 初始化環境變數檢查
 check_environment_variables()
@@ -42,88 +37,34 @@ app = Flask(__name__)
 line_bot_api = LineBotApi(os.getenv('CHANNEL_ACCESS_TOKEN'))
 handler = WebhookHandler(os.getenv('CHANNEL_SECRET'))
 
-# 從環境變數中獲取 OpenAI API 金鑰
-openai.api_key = os.getenv("OPENAI_API_KEY")
-# 用戶狀態管理
+ECHO_MODE_ENABLED = os.getenv("ECHO_MODE_ENABLED", "true").lower() == "true"
+
+# 用戶狀態管理（使用記憶體儲存）
+_user_states = {}
+_user_states_lock = Lock()
+
 def get_user_state(user_id):
-    try:
-        doc = db.collection("user_states").document(user_id).get()
-        if doc.exists:
-            return doc.to_dict().get("state", "default")
-    except Exception as e:
-        print(f"Error getting user state: {e}")
-    return "default"
+    """獲取用戶狀態"""
+    with _user_states_lock:
+        return _user_states.get(user_id, "default")
 
 def set_user_state(user_id, state):
-    try:
-        db.collection("user_states").document(user_id).set({
-            "state": state,
-            "last_updated": firestore.SERVER_TIMESTAMP
-        }, merge=True)
-    except Exception as e:
-        print(f"Error setting user state: {e}")
+    """設定用戶狀態"""
+    with _user_states_lock:
+        _user_states[user_id] = state
 
-# 更新生成學霸小E回應的函數
+# 簡化的回應函數（暫時使用 echo，之後可整合 AI）
 def generate_E_response(user_id, user_message):
-    try:
-        # 加載用戶對話歷史
-        conversations = load_chat_history(user_id)
-
-        # 始終確保系統角色在對話開頭
-        system_message = {
-            "role": "system",
-            "content": (
-                """你是喜歡吐槽別人的學霸小E，是幽默風趣勸學專家，針對不讀書的人，請嚴厲的指責、吐槽、批評。
-                如果別人問你學習建議，你可以接著詢問是關於哪一科目、或哪一領域的學習建議，再依此做出回應。
-                你必須給出具體、實用的建議，這些建議應包括可操作的步驟或真實可行的範例，幫助用戶真正解決問題。
-                你的興趣是跟別人聊天、唱歌、講奇怪的冷笑話、偶爾幽默的引用流行歌歌詞在對話裡。
-                最近期末將至，你專治那些臨時抱佛腳、偷懶或不想讀書的學生。如果用戶考完試，你可以提供具體的放鬆方法或生活建議。
-                歐趴的意思是考試ALL PASS，如果對方問你期末如何歐趴，務必給出實際的學習建議，同時保持幽默。
-                可偶爾加入可愛的表情符號，每次回應在100-150字之間。
-
-                ---
-                【Enote 平台介紹】
-                在這裡，您可以：
-                📘 獲取筆記：協助您媒合及找尋需要的科目/老師的筆記
-                💡 上傳筆記：分享您的筆記，成交後賺取分潤，並幫助更多學習者
-                🤖 跟小E聊天：在學習之餘，陪您閒聊紓壓
-
-                小E，做為Enote的吉祥物，你在聊天過程中適時向用戶推薦這些功能，但不要太多刻意，自然一點，幫助他們發揮 Enote 平台的最大價值！
-                """
-            )
-
-
-        }
-        if not conversations or conversations[0]["role"] != "system":
-            conversations.insert(0, system_message)
-
-        # 添加用戶的最新訊息
-        conversations.append({"role": "user", "content": user_message})
-
-        # 呼叫 GPT API 生成回應
-        response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
-            messages=conversations,
-            max_tokens=180,
-            temperature=0.85,
-            top_p=0.9
-        )
-
-        # GPT 回應
-        assistant_message = response.choices[0].message['content'].strip()
-
-        # 儲存新的對話
-        save_chat_history(user_id, "user", user_message)
-        save_chat_history(user_id, "assistant", assistant_message)
-
-        return assistant_message
-    except Exception as e:
-        print(f"Error generating response: {e}")
-        return "抱歉，小E現在有點忙，稍後再試吧！"
+    """生成回應（暫時簡化版本）"""
+    # 儲存對話歷史
+    save_chat_history(user_id, "user", user_message)
+    # 暫時回傳簡單回應，之後可整合 AI 或查詢商品功能
+    response = f"收到您的訊息：{user_message}"
+    save_chat_history(user_id, "assistant", response)
+    return response
 
 # 註冊 UploadHandler
-FOLDER_ID = "1h7DL1gRlB96Dpxmad0-gMvSDdVjm57vn"
-upload_handler = UploadHandler(upload_folder="uploads", line_bot_api=line_bot_api, folder_id=FOLDER_ID)
+upload_handler = UploadHandler(upload_folder="uploads", line_bot_api=line_bot_api)
 app.register_blueprint(upload_handler.blueprint)
 
 @app.route("/callback", methods=['POST'])
@@ -173,6 +114,13 @@ def handle_text_message(event):
         return
 
     message_text = event.message.text.strip()
+    if ECHO_MODE_ENABLED:
+        line_bot_api.reply_message(
+            event.reply_token,
+            TextSendMessage(text=message_text)
+        )
+        return
+
     user_state = get_user_state(user_id)
 
     if user_state == "default":
@@ -291,9 +239,5 @@ def handle_image_message(event):
 
 if __name__ == "__main__":
     port = int(os.environ.get('PORT', 5000))
-
-    # 啟動 Firebase 監聽器
-    Thread(target=monitor_review_status, args=(line_bot_api,)).start()
-
     # 啟動 Flask 應用
     app.run(host='0.0.0.0', port=port)
