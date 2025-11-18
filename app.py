@@ -89,6 +89,15 @@ def generate_greeting_response() -> str:
 upload_handler = UploadHandler(upload_folder="uploads", line_bot_api=line_bot_api)
 app.register_blueprint(upload_handler.blueprint)
 
+@app.route("/", methods=['GET'])
+def index():
+    """根路由，返回服務狀態"""
+    return jsonify({
+        "status": "running",
+        "service": "Enote LINE Bot",
+        "version": "1.0.0"
+    }), 200
+
 @app.route("/callback", methods=['POST'])
 def callback():
     signature = request.headers.get('X-Line-Signature', None)
