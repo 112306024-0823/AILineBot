@@ -8,6 +8,10 @@ from typing import Optional, List, Dict, Any, BinaryIO
 import logging
 from datetime import datetime
 import uuid
+from dotenv import load_dotenv
+
+# 載入環境變數
+load_dotenv()
 
 logger = logging.getLogger(__name__)
 
@@ -19,8 +23,15 @@ if not supabase_url or not supabase_key:
     logger.warning("Supabase 環境變數未設置，部分功能可能無法使用")
     supabase: Optional[Client] = None
 else:
-    supabase: Optional[Client] = create_client(supabase_url, supabase_key)
-    logger.info("Supabase 連線成功")
+    try:
+        supabase: Optional[Client] = create_client(supabase_url, supabase_key)
+        # 測試連線
+        test_result = supabase.table("products").select("id").limit(1).execute()
+        logger.info("Supabase 連線成功")
+    except Exception as e:
+        logger.error(f"Supabase 連線失敗：{e}")
+        logger.warning("Supabase 功能將無法使用，請檢查環境變數和網路連線")
+        supabase: Optional[Client] = None
 
 # Storage bucket 名稱（可在環境變數中設定）
 STORAGE_BUCKET = os.getenv("SUPABASE_STORAGE_BUCKET", "product-images")
@@ -125,6 +136,73 @@ def search_products(
         return result.data if result.data else []
     except Exception as e:
         logger.error(f"搜尋商品失敗：{e}")
+        return []
+
+
+def search_products_with_locations(
+    search_term: str,
+    limit: int = 10
+) -> List[Dict[str, Any]]:
+    """
+    搜尋商品並包含位置資訊
+    
+    Args:
+        search_term: 搜尋關鍵字（會在商品名稱、描述、品牌中搜尋）
+        limit: 回傳數量上限
+    
+    Returns:
+        商品列表（每個商品包含 locations 欄位）
+    """
+    if not supabase:
+        logger.warning("Supabase 未初始化，無法搜尋產品")
+        return []
+    
+    try:
+        logger.info(f"開始搜尋產品：{search_term}")
+        
+        # 先搜尋產品（使用名稱模糊搜尋）
+        products = search_products(name=search_term, limit=limit)
+        logger.info(f"名稱搜尋結果：{len(products)} 個產品")
+        
+        if not products:
+            # 如果名稱搜尋沒結果，嘗試搜尋品牌
+            try:
+                logger.info(f"嘗試品牌搜尋：{search_term}")
+                query = supabase.table("products").select("*")
+                query = query.ilike("brand", f"%{search_term}%")
+                result = query.limit(limit).execute()
+                if result.data:
+                    products = result.data
+                    logger.info(f"品牌搜尋結果：{len(products)} 個產品")
+            except Exception as e:
+                logger.error(f"品牌搜尋失敗：{e}")
+        
+        if not products:
+            # 如果還是沒結果，嘗試搜尋描述
+            try:
+                logger.info(f"嘗試描述搜尋：{search_term}")
+                query = supabase.table("products").select("*")
+                query = query.ilike("description", f"%{search_term}%")
+                result = query.limit(limit).execute()
+                if result.data:
+                    products = result.data
+                    logger.info(f"描述搜尋結果：{len(products)} 個產品")
+            except Exception as e:
+                logger.error(f"描述搜尋失敗：{e}")
+        
+        # 為每個產品添加位置資訊
+        for product in products:
+            try:
+                locations = get_product_locations(product['id'])
+                product['locations'] = locations
+            except Exception as e:
+                logger.error(f"獲取產品位置失敗（產品ID: {product.get('id')}）：{e}")
+                product['locations'] = []
+        
+        logger.info(f"最終搜尋結果：{len(products)} 個產品（含位置資訊）")
+        return products
+    except Exception as e:
+        logger.error(f"搜尋商品及位置失敗：{e}", exc_info=True)
         return []
 
 
