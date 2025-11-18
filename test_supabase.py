@@ -48,7 +48,7 @@ try:
     
     print("=" * 60)
     print("✅ 連線成功！")
-    print(f"✅ 資料表 'products' 可正常存取")
+    print(f"✅ 資料表可正常存取")
     print("=" * 60)
     
 except ImportError:
