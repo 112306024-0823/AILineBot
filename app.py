@@ -11,6 +11,7 @@ from linebot.models import (
 from Upload_Handler import UploadHandler
 from utils import check_environment_variables
 import os
+import random
 from threading import Lock
 
 # 初始化環境變數檢查
@@ -62,6 +63,27 @@ def generate_E_response(user_id, user_message):
     response = f"收到您的訊息：{user_message}"
     save_chat_history(user_id, "assistant", response)
     return response
+
+# 檢查是否為問候語
+def is_greeting(message: str) -> bool:
+    """檢查訊息是否為常見問候語"""
+    greetings = [
+        "你好", "您好", "hi", "hello", "嗨", "哈囉", "哈囉", "hey",
+        "早安", "午安", "晚安", "早上好", "下午好", "晚上好",
+        "你好嗎", "您好嗎", "how are you", "how are you doing"
+    ]
+    message_lower = message.lower().strip()
+    return message_lower in [g.lower() for g in greetings]
+
+# 生成問候語回應
+def generate_greeting_response() -> str:
+    """生成問候語回應"""
+    responses = [
+        "你好！我是 Enote 的學霸小E，很高興認識你！😊\n\n我可以幫你：\n📚 上傳和分享筆記\n🔍 尋找需要的筆記\n💝 許願想要的筆記內容\n\n點擊下方按鈕開始使用吧！",
+        "您好！歡迎使用 Enote！我是學霸小E 👋\n\n這裡是筆記分享平台，你可以：\n✨ 上傳自己的筆記\n🔎 搜尋需要的筆記\n🎯 許願想要的筆記\n\n需要什麼協助嗎？",
+        "嗨！很高興見到你！我是學霸小E 📖\n\nEnote 是一個筆記分享平台，讓學習資源更容易取得！\n\n你可以透過下方按鈕來：\n📤 上傳筆記\n🔍 找筆記\n💭 許願筆記\n\n有什麼需要幫忙的嗎？"
+    ]
+    return random.choice(responses)
 
 # 註冊 UploadHandler
 upload_handler = UploadHandler(upload_folder="uploads", line_bot_api=line_bot_api)
@@ -124,7 +146,13 @@ def handle_text_message(event):
     user_state = get_user_state(user_id)
 
     if user_state == "default":
-        if message_text == "跟小E對話":
+        # 檢查是否為問候語
+        if is_greeting(message_text):
+            reply_message = TextSendMessage(
+                text=generate_greeting_response(),
+                quick_reply=get_quick_reply("default")
+            )
+        elif message_text == "跟小E對話":
             set_user_state(user_id, "chat_with_xiaoE")
             reply_message = TextSendMessage(
                 text="你好，我是學霸小E，歡迎跟我聊天！",
