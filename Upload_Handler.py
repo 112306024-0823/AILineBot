@@ -1,9 +1,7 @@
 from flask import Blueprint, render_template, request, jsonify
 from werkzeug.utils import secure_filename
-from threading import Thread
-from utils import background_upload_and_save
+from utils import save_file_locally
 import os
-import json
 from flexmessage import create_upload_success_flex
 from datetime import datetime
 import logging
@@ -15,10 +13,9 @@ logging.basicConfig(level=logging.INFO)
 class UploadHandler:
     ALLOWED_EXTENSIONS = {"pdf", "png", "jpg", "jpeg"}
 
-    def __init__(self, upload_folder="uploads", line_bot_api=None, folder_id=None):
+    def __init__(self, upload_folder="uploads", line_bot_api=None):
         self.upload_folder = upload_folder
         self.line_bot_api = line_bot_api
-        self.folder_id = folder_id
         os.makedirs(self.upload_folder, exist_ok=True)
 
         # 建立 Blueprint
@@ -53,10 +50,8 @@ class UploadHandler:
                     file_path = os.path.join(self.upload_folder, filename)
                     file.save(file_path)
 
-                    # 後台處理檔案上傳
-                    Thread(target=background_upload_and_save, args=(
-                        user_id, year, filename, file_path, subject, grade, price, upload_time, self.folder_id, self.line_bot_api
-                    )).start()
+                    # 記錄檔案資訊（本地儲存）
+                    save_file_locally(user_id, filename, file_path, subject, grade, year, price)
 
                     # 發送 Flex Message 通知用戶
                     flex_message = create_upload_success_flex(filename, year, subject, grade, price)
@@ -64,6 +59,7 @@ class UploadHandler:
                     try:
                         self.line_bot_api.push_message(user_id, flex_message)
                     except Exception as e:
+                        logger.error(f"通知發送失敗: {e}")
                         return jsonify({"status": "error", "message": f"通知發送失敗: {e}"}), 500
 
                     return '''
@@ -71,7 +67,7 @@ class UploadHandler:
                     <html>
                     <head>
                         <script>
-                            alert("檔案上傳成功，筆記將於審核後上架，返回LINE頁面");
+                            alert("檔案上傳成功，已儲存至本地，返回LINE頁面");
                             window.location.href = "https://line.me/R/ti/p/@625evpbz";
                         </script>
                     </head>

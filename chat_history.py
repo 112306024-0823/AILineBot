@@ -1,49 +1,30 @@
-from firebase_admin import firestore
-from datetime import datetime
-from firebase_utils import db  # 引入 Firestore 客戶端
-
+from collections import deque
+from threading import Lock
 
 MAX_HISTORY_LENGTH = 10  # 最大對話歷史長度
 
+# 使用記憶體儲存對話歷史
+_chat_history_store = {}
+_store_lock = Lock()
+
 def save_chat_history(user_id, role, content):
-    """將對話存入 Firebase"""
+    """將對話存入記憶體"""
     try:
-        doc_ref = db.collection('chat_history').document(user_id)
-        doc = doc_ref.get()
-        if doc.exists:
-            # 如果有歷史對話，追加到陣列
-            conversations = doc.to_dict().get('conversations', [])
-            conversations.append({"role": role, "content": content})
-            conversations = trim_chat_history(conversations)  # 修剪歷史
-            doc_ref.update({
-                "conversations": conversations,
-                "last_updated": datetime.utcnow()
-            })
-        else:
-            # 如果是新用戶，創建新的對話記錄
-            doc_ref.set({
-                "conversations": [{"role": role, "content": content}],
-                "last_updated": datetime.utcnow()
-            })
+        with _store_lock:
+            if user_id not in _chat_history_store:
+                _chat_history_store[user_id] = deque(maxlen=MAX_HISTORY_LENGTH)
+            _chat_history_store[user_id].append({"role": role, "content": content})
         return True
     except Exception as e:
         print(f"Error saving chat history: {e}")
         return False
 
 def load_chat_history(user_id):
-    """從 Firebase 加載用戶對話歷史"""
+    """從記憶體加載用戶對話歷史"""
     try:
-        doc_ref = db.collection('chat_history').document(user_id)
-        doc = doc_ref.get()
-        if doc.exists:
-            return doc.to_dict().get('conversations', [])
-        return []
+        with _store_lock:
+            history = _chat_history_store.get(user_id, deque())
+            return list(history)
     except Exception as e:
         print(f"Error loading chat history: {e}")
         return []
-
-def trim_chat_history(conversations):
-    """修剪對話歷史，保留最近的對話"""
-    if len(conversations) > MAX_HISTORY_LENGTH:
-        return conversations[-MAX_HISTORY_LENGTH:]
-    return conversations
