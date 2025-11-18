@@ -45,10 +45,6 @@ scoop install ngrok
 ngrok config add-authtoken YOUR_AUTHTOKEN
 ```
 
-**為什麼要註冊？**
-- 免費版可以獲得固定域名（需要付費）
-- 可以查看請求日誌和統計
-- 更好的穩定性
 
 ---
 
