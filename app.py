@@ -6,6 +6,7 @@ from linebot.models import (
     TemplateSendMessage, CarouselTemplate, CarouselColumn, ImageCarouselTemplate, ImageCarouselColumn,
     URIAction, MessageAction
 )
+
 import os
 from dotenv import load_dotenv
 
@@ -14,6 +15,7 @@ load_dotenv()
 
 from utils import check_environment_variables
 from supabase_utils import search_products_with_locations
+from vision_utils import extract_keywords_from_image_gemini
 
 # 初始化環境變數檢查
 check_environment_variables()
@@ -304,23 +306,70 @@ def format_product_carousel(products: list, search_term: str):
 
 # 處理圖片訊息
 @handler.add(MessageEvent, message=ImageMessage) 
+@handler.add(MessageEvent, message=ImageMessage) 
 def handle_image_message(event):
-    """處理圖片訊息"""
     try:
-        user_id = getattr(event.source, 'user_id', None)
-        app.logger.info(f"收到圖片訊息 from {user_id}")
+        message_content = line_bot_api.get_message_content(event.message.id)
+        image_bytes = b"".join(message_content.iter_content())
+
+        # Gemini 分析圖片
+        keywords, full_text = extract_keywords_from_image_gemini(image_bytes)
+        app.logger.info(f"Gemini 回傳：{full_text}")
+        app.logger.info(f"關鍵字：{keywords}")
+
+        # ----------- 第一階段：逐字搜尋，找到第一個命中就回傳 -----------
+        products = []
+        hit_keyword = None
+
+        for k in keywords:
+            result = search_products_with_locations(k, limit=10)
+            if result:
+                products = result
+                hit_keyword = k
+                break
+
+        # 如果第一階段有找到 → 用原本邏輯回覆
+        if products:
+            carousel = format_product_carousel(products, hit_keyword)
+            if carousel:
+                line_bot_api.reply_message(event.reply_token, carousel)
+            else:
+                reply_text = format_product_search_result(products, hit_keyword)
+                line_bot_api.reply_message(event.reply_token, TextSendMessage(text=reply_text))
+            return  
+
+        # ----------- 第二階段：完全沒找到 → 用所有 keywords 合併搜尋 -----------
+        merged_products = {}
         
-        # 簡單回覆：收到圖片
-        try:
+        for k in keywords:
+            result = search_products_with_locations(k, limit=10)
+            for p in result:
+                merged_products[p["id"]] = p  # 用 id 去重複
+
+        merged_products_list = list(merged_products.values())
+
+        if merged_products_list:
+            # 回傳合併搜尋結果
+            carousel = format_product_carousel(merged_products_list, "圖片識別關鍵字")
+            if carousel:
+                line_bot_api.reply_message(event.reply_token, carousel)
+            else:
+                reply_text = format_product_search_result(merged_products_list, "圖片識別關鍵字")
+                line_bot_api.reply_message(event.reply_token, TextSendMessage(text=reply_text))
+        else:
+            # 完全找不到：回報 Gemini 結果協助使用者
             line_bot_api.reply_message(
                 event.reply_token,
-                TextSendMessage(text="✅ 已收到您的圖片")
+                TextSendMessage(
+                    text=f"❌ 找不到相關商品\n🔍 辨識內容：\n{full_text}"
+                )
             )
-            app.logger.info(f"成功回覆圖片訊息給 {user_id}")
-        except Exception as e:
-            app.logger.error(f"回覆圖片訊息時發生錯誤: {str(e)}", exc_info=True)
+
     except Exception as e:
         app.logger.error(f"處理圖片訊息時發生錯誤: {str(e)}", exc_info=True)
+
+
+
 
 if __name__ == "__main__":
     port = int(os.environ.get('PORT', 5000))
