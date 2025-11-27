@@ -139,12 +139,73 @@ def search_products(
         return []
 
 
+def expand_search_terms(search_term: str) -> List[str]:
+    """
+    擴展搜尋關鍵字，包含同義詞和品牌別名
+    
+    Args:
+        search_term: 原始搜尋關鍵字
+        
+    Returns:
+        擴展後的關鍵字列表
+    """
+    # 品牌別名對照表
+    brand_aliases = {
+        "kikoman": ["龜甲萬", "kikkoman", "キッコーマン"],
+        "coca-cola": ["可口可樂", "coca cola", "可樂"],
+        "pepsi": ["百事可樂", "百事"],
+        "unified": ["統一"],
+        "wei-chuan": ["味全"],
+        "president": ["統一", "president"],
+    }
+    
+    # 商品類別關鍵字
+    category_keywords = {
+        "醬油": ["醬油", "soy sauce", "しょうゆ"],
+        "可樂": ["可樂", "cola", "碳酸飲料"],
+        "奶茶": ["奶茶", "milk tea", "ミルクティー"],
+        "泡麵": ["泡麵", "instant noodle", "即席麺"],
+        "鮮奶": ["鮮奶", "milk", "牛乳"],
+    }
+    
+    expanded_terms = [search_term.lower()]
+    
+    # 檢查品牌別名
+    search_lower = search_term.lower()
+    for alias, brands in brand_aliases.items():
+        if alias in search_lower or search_lower in alias:
+            expanded_terms.extend([b.lower() for b in brands])
+        for brand in brands:
+            if brand.lower() in search_lower or search_lower in brand.lower():
+                expanded_terms.extend([b.lower() for b in brands])
+                expanded_terms.append(alias.lower())
+    
+    # 檢查類別關鍵字
+    for category, keywords in category_keywords.items():
+        for keyword in keywords:
+            if keyword.lower() in search_lower:
+                expanded_terms.append(category.lower())
+                expanded_terms.extend([k.lower() for k in keywords])
+                break
+    
+    # 去重並保留原始順序
+    seen = set()
+    result = []
+    for term in expanded_terms:
+        if term not in seen:
+            seen.add(term)
+            result.append(term)
+    
+    logger.info(f"搜尋關鍵字擴展：{search_term} -> {result}")
+    return result
+
+
 def search_products_with_locations(
     search_term: str,
     limit: int = 10
 ) -> List[Dict[str, Any]]:
     """
-    搜尋商品並包含位置資訊
+    搜尋商品並包含位置資訊（支援同義詞和品牌別名）
     
     Args:
         search_term: 搜尋關鍵字（會在商品名稱、描述、品牌中搜尋）
@@ -160,35 +221,83 @@ def search_products_with_locations(
     try:
         logger.info(f"開始搜尋產品：{search_term}")
         
-        # 先搜尋產品（使用名稱模糊搜尋）
-        products = search_products(name=search_term, limit=limit)
-        logger.info(f"名稱搜尋結果：{len(products)} 個產品")
+        # 擴展搜尋關鍵字
+        expanded_terms = expand_search_terms(search_term)
         
-        if not products:
-            # 如果名稱搜尋沒結果，嘗試搜尋品牌
+        all_products = {}  # 使用字典去重（以 id 為 key）
+        
+        # 對每個擴展的關鍵字進行搜尋
+        for term in expanded_terms:
+            # 1. 搜尋商品名稱（模糊搜尋）
             try:
-                logger.info(f"嘗試品牌搜尋：{search_term}")
                 query = supabase.table("products").select("*")
-                query = query.ilike("brand", f"%{search_term}%")
+                query = query.ilike("name", f"%{term}%")
                 result = query.limit(limit).execute()
                 if result.data:
-                    products = result.data
-                    logger.info(f"品牌搜尋結果：{len(products)} 個產品")
+                    for product in result.data:
+                        all_products[product['id']] = product
+                    logger.info(f"名稱搜尋 '{term}'：找到 {len(result.data)} 個產品")
+            except Exception as e:
+                logger.error(f"名稱搜尋失敗：{e}")
+            
+            # 2. 搜尋品牌（模糊搜尋）
+            try:
+                query = supabase.table("products").select("*")
+                query = query.ilike("brand", f"%{term}%")
+                result = query.limit(limit).execute()
+                if result.data:
+                    for product in result.data:
+                        all_products[product['id']] = product
+                    logger.info(f"品牌搜尋 '{term}'：找到 {len(result.data)} 個產品")
             except Exception as e:
                 logger.error(f"品牌搜尋失敗：{e}")
-        
-        if not products:
-            # 如果還是沒結果，嘗試搜尋描述
+            
+            # 3. 搜尋分類（如果關鍵字是類別）
             try:
-                logger.info(f"嘗試描述搜尋：{search_term}")
                 query = supabase.table("products").select("*")
-                query = query.ilike("description", f"%{search_term}%")
+                query = query.ilike("category", f"%{term}%")
                 result = query.limit(limit).execute()
                 if result.data:
-                    products = result.data
-                    logger.info(f"描述搜尋結果：{len(products)} 個產品")
+                    for product in result.data:
+                        all_products[product['id']] = product
+                    logger.info(f"分類搜尋 '{term}'：找到 {len(result.data)} 個產品")
+            except Exception as e:
+                logger.error(f"分類搜尋失敗：{e}")
+            
+            # 4. 搜尋描述（模糊搜尋）
+            try:
+                query = supabase.table("products").select("*")
+                query = query.ilike("description", f"%{term}%")
+                result = query.limit(limit).execute()
+                if result.data:
+                    for product in result.data:
+                        all_products[product['id']] = product
+                    logger.info(f"描述搜尋 '{term}'：找到 {len(result.data)} 個產品")
             except Exception as e:
                 logger.error(f"描述搜尋失敗：{e}")
+        
+        # 轉換為列表
+        products = list(all_products.values())
+        
+        # 如果還是沒找到，嘗試只搜尋原始關鍵字的部分詞
+        if not products:
+            # 將關鍵字拆分成單詞
+            words = search_term.split()
+            for word in words:
+                if len(word) >= 2:  # 只搜尋長度 >= 2 的詞
+                    try:
+                        query = supabase.table("products").select("*")
+                        query = query.ilike("name", f"%{word}%")
+                        result = query.limit(limit).execute()
+                        if result.data:
+                            for product in result.data:
+                                all_products[product['id']] = product
+                            logger.info(f"單詞搜尋 '{word}'：找到 {len(result.data)} 個產品")
+                            break  # 找到就停止
+                    except Exception as e:
+                        logger.error(f"單詞搜尋失敗：{e}")
+        
+        products = list(all_products.values())[:limit]
         
         # 為每個產品添加位置資訊
         for product in products:

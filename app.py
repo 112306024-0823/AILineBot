@@ -233,6 +233,9 @@ def format_product_search_result(products: list, search_term: str) -> str:
     return result_text
 
 
+# 預設圖片 URL（如果商品沒有圖片時使用）
+DEFAULT_PRODUCT_IMAGE_URL = "https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=300&h=300&fit=crop"
+
 def format_product_carousel(products: list, search_term: str):
     """
     格式化產品搜尋結果為 LINE Carousel Template（圖片+文字）
@@ -242,27 +245,34 @@ def format_product_carousel(products: list, search_term: str):
         search_term: 搜尋關鍵字
     
     Returns:
-        TemplateSendMessage 或 None（如果沒有有效圖片）
+        TemplateSendMessage 或 None（如果沒有商品）
     """
     if not products:
         return None
     
-    # 過濾出有圖片的產品（最多 10 個，LINE Carousel 限制）
-    products_with_images = []
+    # 處理所有產品（最多 10 個，LINE Carousel 限制）
+    products_to_show = []
     for product in products[:10]:  # LINE Carousel 最多 10 個項目
         image_url = product.get('image_url')
         # 檢查圖片 URL 是否有效（必須是 HTTPS）
         if image_url and image_url.startswith('https://') and not image_url.startswith('https://example.com'):
-            products_with_images.append(product)
+            # 使用商品自己的圖片
+            product['display_image_url'] = image_url
+        else:
+            # 使用預設圖片
+            product['display_image_url'] = DEFAULT_PRODUCT_IMAGE_URL
+            app.logger.info(f"商品 {product.get('name')} 沒有有效圖片，使用預設圖片")
+        
+        products_to_show.append(product)
     
-    # 如果沒有有效圖片，返回 None（回退到文字訊息）
-    if not products_with_images:
-        app.logger.info("沒有有效的產品圖片，回退到文字訊息")
+    # 如果沒有商品，返回 None
+    if not products_to_show:
+        app.logger.info("沒有商品可顯示")
         return None
     
     # 建立 Carousel Columns
     columns = []
-    for product in products_with_images:
+    for product in products_to_show:
         name = product.get('name', '未知產品')
         price = float(product.get('price', 0))
         stock = product.get('stock', 0)
@@ -310,7 +320,7 @@ def format_product_carousel(products: list, search_term: str):
         text = text[:120] if len(text) <= 120 else text[:117] + "..."
         
         column = CarouselColumn(
-            thumbnail_image_url=product.get('image_url'),
+            thumbnail_image_url=product.get('display_image_url', DEFAULT_PRODUCT_IMAGE_URL),
             title=title,
             text=text,
             actions=[
