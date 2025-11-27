@@ -16,6 +16,7 @@ load_dotenv()
 from utils import check_environment_variables
 from supabase_utils import search_products_with_locations
 from vision_utils import extract_keywords_from_image_gemini
+from gemini_qa_utils import answer_question
 
 # 初始化環境變數檢查
 check_environment_variables()
@@ -87,35 +88,67 @@ def handle_text_message(event):
                     TextSendMessage(text=reply_text)
                 )
             else:
-                # 搜尋 Supabase 資料庫
-                app.logger.info(f"開始搜尋產品：{message_text}")
-                products = search_products_with_locations(message_text, limit=10)
-                app.logger.info(f"搜尋結果：找到 {len(products)} 個產品")
+                # 判斷是否為問題（包含疑問詞或複雜查詢）
+                question_keywords = ["什麼", "哪些", "哪裡", "多少", "最", "比較", "推薦", "便宜", "貴", "價格", "位置", "區"]
+                is_question = any(keyword in message_text for keyword in question_keywords) or \
+                             message_text.endswith("?") or message_text.endswith("？")
                 
-                if products:
-                    # 嘗試使用 Carousel 顯示產品（圖片+文字）
-                    carousel_message = format_product_carousel(products, message_text)
-                    if carousel_message:
-                        # 有圖片，使用 Carousel
+                if is_question:
+                    # 使用 Gemini 智能問答
+                    try:
+                        app.logger.info(f"使用智能問答處理問題：{message_text}")
+                        answer = answer_question(message_text)
                         line_bot_api.reply_message(
                             event.reply_token,
-                            carousel_message
+                            TextSendMessage(text=answer)
                         )
-                        app.logger.info(f"成功回覆 Carousel 訊息給 {user_id}: {len(products)} 個產品")
+                        app.logger.info(f"成功回覆智能問答給 {user_id}")
+                    except Exception as e:
+                        app.logger.error(f"智能問答失敗：{str(e)}", exc_info=True)
+                        # 回退到簡單搜尋
+                        products = search_products_with_locations(message_text, limit=10)
+                        if products:
+                            reply_text = format_product_search_result(products, message_text)
+                            line_bot_api.reply_message(
+                                event.reply_token,
+                                TextSendMessage(text=reply_text)
+                            )
+                        else:
+                            reply_text = f"🔍 找不到包含「{message_text}」的產品\n\n請嘗試其他關鍵字搜尋。"
+                            line_bot_api.reply_message(
+                                event.reply_token,
+                                TextSendMessage(text=reply_text)
+                            )
+                else:
+                    # 簡單搜尋產品
+                    app.logger.info(f"開始搜尋產品：{message_text}")
+                    products = search_products_with_locations(message_text, limit=10)
+                    app.logger.info(f"搜尋結果：找到 {len(products)} 個產品")
+                    
+                    if products:
+                        # 嘗試使用 Carousel 顯示產品（圖片+文字）
+                        carousel_message = format_product_carousel(products, message_text)
+                        if carousel_message:
+                            # 有圖片，使用 Carousel
+                            line_bot_api.reply_message(
+                                event.reply_token,
+                                carousel_message
+                            )
+                            app.logger.info(f"成功回覆 Carousel 訊息給 {user_id}: {len(products)} 個產品")
+                        else:
+                            # 沒有圖片，回退到文字訊息
+                            reply_text = format_product_search_result(products, message_text)
+                            line_bot_api.reply_message(
+                                event.reply_token,
+                                TextSendMessage(text=reply_text)
+                            )
+                            app.logger.info(f"成功回覆文字訊息給 {user_id}: {len(products)} 個產品")
                     else:
-                        # 沒有圖片，回退到文字訊息
-                        reply_text = format_product_search_result(products, message_text)
+                        reply_text = f"🔍 找不到包含「{message_text}」的產品\n\n請嘗試其他關鍵字搜尋。"
                         line_bot_api.reply_message(
                             event.reply_token,
                             TextSendMessage(text=reply_text)
                         )
-                        app.logger.info(f"成功回覆文字訊息給 {user_id}: {len(products)} 個產品")
-                else:
-                    reply_text = f"🔍 找不到包含「{message_text}」的產品\n\n請嘗試其他關鍵字搜尋。"
-                    line_bot_api.reply_message(
-                        event.reply_token,
-                        TextSendMessage(text=reply_text)
-                    )
         except Exception as e:
             app.logger.error(f"搜尋或回覆訊息時發生錯誤: {str(e)}", exc_info=True)
             # 發生錯誤時回覆簡單訊息
