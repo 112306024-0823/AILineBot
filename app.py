@@ -58,10 +58,252 @@ def callback():
         abort(500)
     return 'OK'
 
-# 處理文字訊息：搜尋產品或 echo
+# ==================== 模式判斷與路由 ====================
+
+def determine_mode(message_text: str) -> str:
+    """
+    判斷訊息應該進入哪個模式
+    
+    Returns:
+        'qa': 智能問答模式
+        'search': 商品搜尋模式
+        'favorite': 收藏功能
+        'help': 使用說明
+        'search': 預設為商品搜尋模式
+    """
+    message_text = message_text.strip()
+    
+    # 使用說明關鍵字
+    help_keywords = ["使用說明", "說明", "幫助", "help", "如何使用", "功能"]
+    if any(keyword in message_text for keyword in help_keywords):
+        return 'help'
+    
+    # 收藏功能關鍵字（已在 handle_favorite_commands 中處理，這裡只是標記）
+    favorite_keywords = ["我的收藏", "收藏列表", "收藏"]
+    if message_text in favorite_keywords:
+        return 'favorite'
+    
+    # 商品搜尋模式觸發詞（用於顯示提示）
+    search_trigger_keywords = ["搜尋商品", "商品搜尋", "搜尋", "找商品"]
+    if any(keyword == message_text for keyword in search_trigger_keywords):
+        return 'search_help'  # 特殊標記，用於顯示搜尋提示
+    
+    # 智能問答模式關鍵字
+    qa_keywords = ["什麼", "哪些", "哪裡", "多少", "最", "比較", "推薦", "便宜", "貴", "價格", "位置", "區"]
+    is_question = any(keyword in message_text for keyword in qa_keywords) or \
+                 message_text.endswith("?") or message_text.endswith("？")
+    
+    # 明確的智能問答觸發詞
+    qa_trigger_keywords = ["智能問答", "問答", "問你", "請問"]
+    if any(keyword in message_text for keyword in qa_trigger_keywords):
+        return 'qa'
+    
+    # 如果包含疑問詞，進入智能問答模式
+    if is_question:
+        return 'qa'
+    
+    # 預設為商品搜尋模式
+    return 'search'
+
+
+# ==================== 模式處理函數 ====================
+
+def handle_product_search_mode(event, search_term: str, user_id: str):
+    """
+    商品搜尋模式：處理文字搜尋
+    
+    Args:
+        event: LINE 事件
+        search_term: 搜尋關鍵字
+        user_id: 用戶 ID
+    """
+    try:
+        # 檢查是否為開啟搜尋模式的指令
+        search_mode_keywords = ["搜尋商品", "商品搜尋", "搜尋", "找商品","商品辨識"]
+        is_search_mode_trigger = any(keyword == search_term.strip() for keyword in search_mode_keywords)
+        
+        if is_search_mode_trigger:
+            # 用戶輸入「搜尋商品」等關鍵字，顯示提示訊息
+            help_text = """🔍 商品搜尋模式已開啟
+
+您可以透過以下方式搜尋商品：
+
+📝 文字搜尋
+直接輸入商品名稱，例如：
+• 可樂
+• 泡麵
+• 鮮奶
+• 品客洋芋片
+
+📷 圖片辨識
+上傳商品圖片，AI 會自動辨識並搜尋
+
+💡 搜尋技巧
+• 可以輸入品牌名稱（如：統一、義美）
+• 可以輸入商品分類（如：飲料、零食）
+• 可以輸入部分關鍵字（如：可樂、泡麵）
+
+直接輸入商品名稱或上傳圖片即可開始搜尋！"""
+            
+            line_bot_api.reply_message(
+                event.reply_token,
+                TextSendMessage(text=help_text)
+            )
+            app.logger.info(f"[商品搜尋模式] 顯示使用提示給 {user_id}")
+            return
+        
+        # 正常處理搜尋
+        app.logger.info(f"[商品搜尋模式] 開始搜尋產品：{search_term}")
+        products = search_products_with_locations(search_term, limit=10)
+        app.logger.info(f"[商品搜尋模式] 搜尋結果：找到 {len(products)} 個產品")
+        
+        if products:
+            # 嘗試使用 Carousel 顯示產品（圖片+文字）
+            carousel_message = format_product_carousel(products, search_term)
+            if carousel_message:
+                # 有圖片，使用 Carousel
+                line_bot_api.reply_message(
+                    event.reply_token,
+                    carousel_message
+                )
+                app.logger.info(f"[商品搜尋模式] 成功回覆 Carousel 訊息給 {user_id}: {len(products)} 個產品")
+            else:
+                # 沒有圖片，回退到文字訊息
+                reply_text = format_product_search_result(products, search_term)
+                line_bot_api.reply_message(
+                    event.reply_token,
+                    TextSendMessage(text=reply_text)
+                )
+                app.logger.info(f"[商品搜尋模式] 成功回覆文字訊息給 {user_id}: {len(products)} 個產品")
+        else:
+            reply_text = f"🔍 找不到包含「{search_term}」的產品\n\n請嘗試其他關鍵字搜尋。"
+            line_bot_api.reply_message(
+                event.reply_token,
+                TextSendMessage(text=reply_text)
+            )
+    except Exception as e:
+        app.logger.error(f"[商品搜尋模式] 搜尋時發生錯誤: {str(e)}", exc_info=True)
+        try:
+            line_bot_api.reply_message(
+                event.reply_token,
+                TextSendMessage(text=f"❌ 搜尋時發生錯誤，請稍後再試。")
+            )
+        except:
+            pass
+
+
+def handle_qa_mode(event, question: str, user_id: str):
+    """
+    智能問答模式：處理 AI 問答
+    
+    Args:
+        event: LINE 事件
+        question: 用戶問題
+        user_id: 用戶 ID
+    """
+    try:
+        # 檢查是否為開啟智能問答模式的指令
+        qa_mode_keywords = ["智能問答", "問答", "問你", "請問"]
+        is_qa_mode_trigger = any(keyword == question.strip() for keyword in qa_mode_keywords)
+        
+        if is_qa_mode_trigger:
+            # 用戶輸入「智能問答」等關鍵字，顯示提示訊息
+            help_text = """💬 智能問答模式已開啟
+
+您可以問我任何關於商品的問題，例如：
+
+🔍 價格相關
+• 最便宜的可樂是什麼？
+• 哪個品牌的泡麵最貴？
+
+📍 位置相關
+• 可樂在哪裡？
+• 哪裡可以找到泡麵？
+
+📊 比較與推薦
+• 推薦的飲料有哪些？
+• 比較可樂和雪碧的價格
+
+💡 其他問題
+• 有哪些商品在特價？
+• 缺貨的商品有哪些？
+
+直接輸入您的問題，我會盡力回答！"""
+            
+            line_bot_api.reply_message(
+                event.reply_token,
+                TextSendMessage(text=help_text)
+            )
+            app.logger.info(f"[智能問答模式] 顯示使用提示給 {user_id}")
+            return
+        
+        # 正常處理問題
+        app.logger.info(f"[智能問答模式] 處理問題：{question}")
+        answer = answer_question(question)
+        line_bot_api.reply_message(
+            event.reply_token,
+            TextSendMessage(text=answer)
+        )
+        app.logger.info(f"[智能問答模式] 成功回覆智能問答給 {user_id}")
+    except Exception as e:
+        app.logger.error(f"[智能問答模式] 智能問答失敗：{str(e)}", exc_info=True)
+        # 回退到商品搜尋模式
+        app.logger.info(f"[智能問答模式] 回退到商品搜尋模式")
+        handle_product_search_mode(event, question, user_id)
+
+
+def handle_help_mode(event, user_id: str):
+    """
+    使用說明模式：顯示使用說明
+    
+    Args:
+        event: LINE 事件
+        user_id: 用戶 ID
+    """
+    help_text = """📖 使用說明
+
+🔍 搜尋商品
+直接輸入商品名稱即可搜尋，例如：
+• 可樂
+• 泡麵
+• 鮮奶
+
+📷 拍照辨識
+上傳商品圖片，AI 會自動辨識並搜尋
+
+💬 智能問答
+問我問題，例如：
+• 最便宜的可樂是什麼？
+• 哪裡可以找到泡麵？
+• 推薦的飲料有哪些？
+
+❤️ 我的收藏
+輸入「我的收藏」查看您收藏的商品
+
+🎫 我的優惠券
+輸入「我的優惠券」查看您的優惠券
+
+💡 提示
+• 可以透過圖文選單快速使用各項功能
+• 搜尋結果可以點擊「收藏商品」加入收藏
+• 有任何問題都可以問我！"""
+    
+    try:
+        line_bot_api.reply_message(
+            event.reply_token,
+            TextSendMessage(text=help_text)
+        )
+        app.logger.info(f"[使用說明] 成功回覆使用說明給 {user_id}")
+    except Exception as e:
+        app.logger.error(f"[使用說明] 回覆失敗：{str(e)}", exc_info=True)
+
+
+# ==================== 訊息處理器 ====================
+
+# 處理文字訊息
 @handler.add(MessageEvent, message=TextMessage)
 def handle_text_message(event):
-    """處理文字訊息 - 搜尋產品功能"""
+    """處理文字訊息 - 根據模式路由到對應處理函數"""
     try:
         user_id = getattr(event.source, 'user_id', None)
         if not user_id:
@@ -69,103 +311,46 @@ def handle_text_message(event):
             return
 
         message_text = event.message.text.strip()
-        app.logger.info(f"收到訊息 from {user_id}: {message_text}")
+        app.logger.info(f"收到文字訊息 from {user_id}: {message_text}")
         
-        # 搜尋產品功能
-        try:
-            # 檢查 Supabase 是否已初始化
-            from supabase_utils import supabase
-            if not supabase:
-                app.logger.warning("Supabase 未初始化，無法搜尋產品")
-                reply_text = (
-                    "⚠️ Supabase 資料庫未連接\n\n"
-                    "請檢查環境變數設定：\n"
-                    "- SUPABASE_URL\n"
-                    "- SUPABASE_KEY\n\n"
-                    "設定完成後請重啟應用程式。"
-                )
-                line_bot_api.reply_message(
-                    event.reply_token,
-                    TextSendMessage(text=reply_text)
-                )
-            else:
-                # 先檢查是否為收藏相關指令
-                if handle_favorite_commands(event, message_text, user_id):
-                    return  # 已處理收藏指令，直接返回
-                
-                # 判斷是否為問題（包含疑問詞或複雜查詢）
-                question_keywords = ["什麼", "哪些", "哪裡", "多少", "最", "比較", "推薦", "便宜", "貴", "價格", "位置", "區"]
-                is_question = any(keyword in message_text for keyword in question_keywords) or \
-                             message_text.endswith("?") or message_text.endswith("？")
-                
-                if is_question:
-                    # 使用 Gemini 智能問答
-                    try:
-                        app.logger.info(f"使用智能問答處理問題：{message_text}")
-                        answer = answer_question(message_text)
-                        line_bot_api.reply_message(
-                            event.reply_token,
-                            TextSendMessage(text=answer)
-                        )
-                        app.logger.info(f"成功回覆智能問答給 {user_id}")
-                    except Exception as e:
-                        app.logger.error(f"智能問答失敗：{str(e)}", exc_info=True)
-                        # 回退到簡單搜尋
-                        products = search_products_with_locations(message_text, limit=10)
-                        if products:
-                            reply_text = format_product_search_result(products, message_text)
-                            line_bot_api.reply_message(
-                                event.reply_token,
-                                TextSendMessage(text=reply_text)
-                            )
-                        else:
-                            reply_text = f"🔍 找不到包含「{message_text}」的產品\n\n請嘗試其他關鍵字搜尋。"
-                            line_bot_api.reply_message(
-                                event.reply_token,
-                                TextSendMessage(text=reply_text)
-                            )
-                else:
-                    # 簡單搜尋產品
-                    app.logger.info(f"開始搜尋產品：{message_text}")
-                    products = search_products_with_locations(message_text, limit=10)
-                    app.logger.info(f"搜尋結果：找到 {len(products)} 個產品")
-                    
-                    if products:
-                        # 嘗試使用 Carousel 顯示產品（圖片+文字）
-                        carousel_message = format_product_carousel(products, message_text)
-                        if carousel_message:
-                            # 有圖片，使用 Carousel
-                            line_bot_api.reply_message(
-                                event.reply_token,
-                                carousel_message
-                            )
-                            app.logger.info(f"成功回覆 Carousel 訊息給 {user_id}: {len(products)} 個產品")
-                        else:
-                            # 沒有圖片，回退到文字訊息
-                            reply_text = format_product_search_result(products, message_text)
-                            line_bot_api.reply_message(
-                                event.reply_token,
-                                TextSendMessage(text=reply_text)
-                            )
-                            app.logger.info(f"成功回覆文字訊息給 {user_id}: {len(products)} 個產品")
-                    else:
-                        reply_text = f"🔍 找不到包含「{message_text}」的產品\n\n請嘗試其他關鍵字搜尋。"
-                        line_bot_api.reply_message(
-                            event.reply_token,
-                            TextSendMessage(text=reply_text)
-                        )
-        except Exception as e:
-            app.logger.error(f"搜尋或回覆訊息時發生錯誤: {str(e)}", exc_info=True)
-            # 發生錯誤時回覆簡單訊息
-            try:
-                line_bot_api.reply_message(
-                    event.reply_token,
-                    TextSendMessage(text=f"❌ 搜尋時發生錯誤：{str(e)}\n\n請檢查日誌或稍後再試。")
-                )
-            except:
-                pass
+        # 檢查 Supabase 是否已初始化
+        from supabase_utils import supabase
+        if not supabase:
+            app.logger.warning("Supabase 未初始化")
+            reply_text = (
+                "⚠️ Supabase 資料庫未連接\n\n"
+                "請檢查環境變數設定：\n"
+                "- SUPABASE_URL\n"
+                "- SUPABASE_KEY\n\n"
+                "設定完成後請重啟應用程式。"
+            )
+            line_bot_api.reply_message(
+                event.reply_token,
+                TextSendMessage(text=reply_text)
+            )
+            return
+        
+        # 先檢查是否為收藏相關指令
+        if handle_favorite_commands(event, message_text, user_id):
+            return  # 已處理收藏指令，直接返回
+        
+        # 判斷模式
+        mode = determine_mode(message_text)
+        app.logger.info(f"判斷模式：{mode}")
+        
+        # 根據模式路由到對應處理函數
+        if mode == 'help':
+            handle_help_mode(event, user_id)
+        elif mode == 'qa':
+            handle_qa_mode(event, message_text, user_id)
+        elif mode == 'search_help':
+            # 搜尋模式提示（會由 handle_product_search_mode 內部處理）
+            handle_product_search_mode(event, message_text, user_id)
+        else:  # 'search' 或其他，預設為商品搜尋模式
+            handle_product_search_mode(event, message_text, user_id)
+            
     except Exception as e:
-        app.logger.error(f"處理訊息時發生錯誤: {str(e)}", exc_info=True)
+        app.logger.error(f"處理文字訊息時發生錯誤: {str(e)}", exc_info=True)
 
 
 def format_product_search_result(products: list, search_term: str) -> str:
@@ -366,19 +551,30 @@ def format_product_carousel(products: list, search_term: str):
     return template_message
 
 
-# 處理圖片訊息
+# 處理圖片訊息（商品搜尋模式）
 @handler.add(MessageEvent, message=ImageMessage)
 def handle_image_message(event):
+    """
+    處理圖片訊息 - 商品搜尋模式（圖片辨識）
+    圖片訊息統一進入商品搜尋模式
+    """
     try:
+        user_id = getattr(event.source, 'user_id', None)
+        if not user_id:
+            app.logger.warning("無法獲取用戶 ID")
+            return
+        
+        app.logger.info(f"[商品搜尋模式-圖片] 收到圖片訊息 from {user_id}")
+        
         message_content = line_bot_api.get_message_content(event.message.id)
         image_bytes = b"".join(message_content.iter_content())
 
         # Gemini 分析圖片
         keywords, full_text = extract_keywords_from_image_gemini(image_bytes)
-        app.logger.info(f"Gemini 回傳：{full_text}")
-        app.logger.info(f"關鍵字：{keywords}")
+        app.logger.info(f"[商品搜尋模式-圖片] Gemini 回傳：{full_text}")
+        app.logger.info(f"[商品搜尋模式-圖片] 關鍵字：{keywords}")
 
-        # ----------- 第一階段：逐字搜尋，找到第一個命中就回傳 -----------
+        # ----------- 第一階段：逐關鍵字搜尋，找到第一個命中就回傳 -----------
         products = []
         hit_keyword = None
 
@@ -394,9 +590,11 @@ def handle_image_message(event):
             carousel = format_product_carousel(products, hit_keyword)
             if carousel:
                 line_bot_api.reply_message(event.reply_token, carousel)
+                app.logger.info(f"[商品搜尋模式-圖片] 成功回覆 Carousel：{len(products)} 個產品")
             else:
                 reply_text = format_product_search_result(products, hit_keyword)
                 line_bot_api.reply_message(event.reply_token, TextSendMessage(text=reply_text))
+                app.logger.info(f"[商品搜尋模式-圖片] 成功回覆文字訊息：{len(products)} 個產品")
             return  
 
         # ----------- 第二階段：完全沒找到 → 用所有 keywords 合併搜尋 -----------
@@ -411,23 +609,28 @@ def handle_image_message(event):
 
         if merged_products_list:
             # 回傳合併搜尋結果
-            carousel = format_product_carousel(merged_products_list, "圖片識別關鍵字")
+            carousel = format_product_carousel(merged_products_list, " ".join(keywords))
             if carousel:
                 line_bot_api.reply_message(event.reply_token, carousel)
+                app.logger.info(f"[商品搜尋模式-圖片] 成功回覆合併搜尋結果：{len(merged_products_list)} 個產品")
             else:
-                reply_text = format_product_search_result(merged_products_list, "圖片識別關鍵字")
+                reply_text = format_product_search_result(merged_products_list, " ".join(keywords))
                 line_bot_api.reply_message(event.reply_token, TextSendMessage(text=reply_text))
         else:
-            # 完全找不到：回報 Gemini 結果協助使用者
-            line_bot_api.reply_message(
-                event.reply_token,
-                TextSendMessage(
-                    text=f"❌ 找不到相關商品\n🔍 辨識內容：\n{full_text}"
-                )
-            )
+            # 完全找不到 → 回傳 Gemini 辨識內容
+            reply_text = f"📷 圖片辨識結果：\n\n{full_text}\n\n🔍 未找到相符商品，請嘗試其他關鍵字搜尋。"
+            line_bot_api.reply_message(event.reply_token, TextSendMessage(text=reply_text))
+            app.logger.info(f"[商品搜尋模式-圖片] 未找到商品，回傳辨識內容")
 
     except Exception as e:
-        app.logger.error(f"處理圖片訊息時發生錯誤: {str(e)}", exc_info=True)
+        app.logger.error(f"[商品搜尋模式-圖片] 處理圖片時發生錯誤: {str(e)}", exc_info=True)
+        try:
+            line_bot_api.reply_message(
+                event.reply_token,
+                TextSendMessage(text="❌ 處理圖片時發生錯誤，請稍後再試。")
+            )
+        except:
+            pass
 
 
 # 處理 Postback 事件（收藏商品）
