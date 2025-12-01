@@ -179,6 +179,7 @@ def expand_search_terms(search_term: str) -> List[str]:
             if brand.lower() in search_lower or search_lower in brand.lower():
                 expanded_terms.extend([b.lower() for b in brands])
                 expanded_terms.append(alias.lower())
+                
     
     # 檢查類別關鍵字
     for category, keywords in category_keywords.items():
@@ -663,4 +664,150 @@ def create_product_with_image(
         ingredients=ingredients,
         **kwargs
     )
+
+
+# ==================== 用戶收藏操作 ====================
+
+def add_to_favorites(user_id: str, product_id: str) -> bool:
+    """
+    新增商品到收藏
+    
+    Args:
+        user_id: LINE 用戶 ID
+        product_id: 商品 ID
+    
+    Returns:
+        成功返回 True，失敗返回 False
+    """
+    if not supabase:
+        logger.error("Supabase 未初始化")
+        return False
+    
+    try:
+        # 檢查是否已收藏
+        existing = supabase.table("user_favorites").select("id").eq("user_id", user_id).eq("product_id", product_id).execute()
+        if existing.data:
+            logger.info(f"用戶 {user_id} 已收藏商品 {product_id}")
+            return False  # 已收藏過
+        
+        # 新增收藏
+        result = supabase.table("user_favorites").insert({
+            "user_id": user_id,
+            "product_id": product_id
+        }).execute()
+        
+        if result.data:
+            logger.info(f"用戶 {user_id} 成功收藏商品 {product_id}")
+            return True
+        return False
+    except Exception as e:
+        logger.error(f"新增收藏失敗：{e}")
+        return False
+
+
+def remove_from_favorites(user_id: str, product_id: str) -> bool:
+    """
+    從收藏中移除商品
+    
+    Args:
+        user_id: LINE 用戶 ID
+        product_id: 商品 ID
+    
+    Returns:
+        成功返回 True，失敗返回 False
+    """
+    if not supabase:
+        logger.error("Supabase 未初始化")
+        return False
+    
+    try:
+        result = supabase.table("user_favorites").delete().eq("user_id", user_id).eq("product_id", product_id).execute()
+        logger.info(f"用戶 {user_id} 成功取消收藏商品 {product_id}")
+        return True
+    except Exception as e:
+        logger.error(f"移除收藏失敗：{e}")
+        return False
+
+
+def get_user_favorites(user_id: str, limit: int = 20) -> List[Dict[str, Any]]:
+    """
+    查詢用戶收藏的商品列表（包含商品資訊和位置）
+    
+    Args:
+        user_id: LINE 用戶 ID
+        limit: 回傳數量上限
+    
+    Returns:
+        商品列表（每個商品包含 locations 欄位）
+    """
+    if not supabase:
+        logger.warning("Supabase 未初始化，無法查詢收藏")
+        return []
+    
+    try:
+        # 查詢用戶收藏的商品 ID
+        favorites_result = supabase.table("user_favorites").select("product_id, created_at").eq("user_id", user_id).order("created_at", desc=True).limit(limit).execute()
+        
+        if not favorites_result.data:
+            return []
+        
+        product_ids = [fav["product_id"] for fav in favorites_result.data]
+        
+        # 查詢商品資訊
+        products = []
+        for product_id in product_ids:
+            product = get_product_by_id(product_id)
+            if product:
+                # 添加位置資訊
+                product["locations"] = get_product_locations(product_id)
+                products.append(product)
+        
+        logger.info(f"用戶 {user_id} 的收藏：找到 {len(products)} 個商品")
+        return products
+    except Exception as e:
+        logger.error(f"查詢收藏失敗：{e}")
+        return []
+
+
+def is_favorited(user_id: str, product_id: str) -> bool:
+    """
+    檢查商品是否已被用戶收藏
+    
+    Args:
+        user_id: LINE 用戶 ID
+        product_id: 商品 ID
+    
+    Returns:
+        已收藏返回 True，否則返回 False
+    """
+    if not supabase:
+        return False
+    
+    try:
+        result = supabase.table("user_favorites").select("id").eq("user_id", user_id).eq("product_id", product_id).execute()
+        return len(result.data) > 0
+    except Exception as e:
+        logger.error(f"檢查收藏狀態失敗：{e}")
+        return False
+
+
+def get_favorite_count(product_id: str) -> int:
+    """
+    查詢商品的收藏人數
+    
+    Args:
+        product_id: 商品 ID
+    
+    Returns:
+        收藏人數
+    """
+    if not supabase:
+        return 0
+    
+    try:
+        result = supabase.table("user_favorites").select("id", count="exact").eq("product_id", product_id).execute()
+        return result.count if hasattr(result, 'count') else len(result.data) if result.data else 0
+    except Exception as e:
+        logger.error(f"查詢收藏人數失敗：{e}")
+        return 0
 
