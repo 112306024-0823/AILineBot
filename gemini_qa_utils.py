@@ -4,7 +4,7 @@ Gemini 智能問答模組
 """
 import os
 import google.generativeai as genai
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Tuple
 from supabase_utils import (
     search_products_with_locations,
     search_products,
@@ -17,6 +17,51 @@ logger = logging.getLogger(__name__)
 
 # 設定 API Key
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+
+
+def clean_markdown(text: str) -> str:
+    """
+    移除文字中的 Markdown 格式，讓 LINE 可以正常顯示
+    
+    Args:
+        text: 包含 Markdown 格式的文字
+        
+    Returns:
+        清理後的純文字
+    """
+    import re
+    
+    if not text:
+        return text
+    
+    # 移除 Markdown 程式碼區塊 ```code```（優先處理，避免影響其他格式）
+    text = re.sub(r'```[\s\S]*?```', '', text)
+    
+    # 移除 Markdown 粗體 **text** 或 __text__
+    text = re.sub(r'\*\*(.*?)\*\*', r'\1', text)
+    text = re.sub(r'__(.*?)__', r'\1', text)
+    
+    # 移除 Markdown 刪除線 ~~text~~
+    text = re.sub(r'~~(.*?)~~', r'\1', text)
+    
+    # 移除 Markdown 行內程式碼 `code`（單個反引號）
+    text = re.sub(r'`([^`]+)`', r'\1', text)
+    
+    # 移除 Markdown 連結 [text](url) 但保留文字
+    text = re.sub(r'\[([^\]]+)\]\([^\)]+\)', r'\1', text)
+    
+    # 移除 Markdown 斜體 *text* 或 _text_（放在最後，避免與粗體衝突）
+    # 只處理單個 * 或 _，且前後不是相同符號的情況
+    text = re.sub(r'(?<!\*)\*([^*]+?)\*(?!\*)', r'\1', text)
+    text = re.sub(r'(?<!_)_([^_]+?)_(?!_)', r'\1', text)
+    
+    # 移除多餘的空白行（保留最多兩個連續換行）
+    text = re.sub(r'\n{3,}', '\n\n', text)
+    
+    # 移除行首的 # 標題符號（如果有的話）
+    text = re.sub(r'^#{1,6}\s+', '', text, flags=re.MULTILINE)
+    
+    return text.strip()
 
 
 def analyze_question(question: str) -> Dict[str, Any]:
@@ -346,6 +391,9 @@ def generate_answer(question: str, products: List[Dict[str, Any]], analysis: Dic
         response = model.generate_content(prompt)
         answer = response.text.strip()
         
+        # 移除 Markdown 格式（LINE 不支援 Markdown）
+        answer = clean_markdown(answer)
+        
         # 如果沒找到商品，提供更詳細的說明
         if not products:
             answer += "\n\n💡 提示：您可以嘗試：\n"
@@ -370,7 +418,7 @@ def answer_question(question: str) -> str:
     
     Args:
         question: 用戶的問題
-        
+    
     Returns:
         自然語言回答
     """
@@ -389,4 +437,31 @@ def answer_question(question: str) -> str:
     except Exception as e:
         logger.error(f"處理問題失敗：{e}", exc_info=True)
         return "抱歉，處理您的問題時發生錯誤。請稍後再試或嘗試其他問題。"
+
+
+def answer_question_with_products(question: str) -> Tuple[str, List[Dict[str, Any]]]:
+    """
+    完整的問答流程：分析問題 → 查詢資料庫 → 生成回答（同時返回商品列表）
+    
+    Args:
+        question: 用戶的問題
+    
+    Returns:
+        (自然語言回答, 商品列表)
+    """
+    try:
+        # 1. 分析問題
+        analysis = analyze_question(question)
+        
+        # 2. 查詢資料庫
+        products = query_database(analysis)
+        
+        # 3. 生成回答
+        answer = generate_answer(question, products, analysis)
+        
+        return answer, products
+        
+    except Exception as e:
+        logger.error(f"處理問題失敗：{e}", exc_info=True)
+        return "抱歉，處理您的問題時發生錯誤。請稍後再試或嘗試其他問題。", []
 

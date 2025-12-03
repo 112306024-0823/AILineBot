@@ -811,3 +811,128 @@ def get_favorite_count(product_id: str) -> int:
         logger.error(f"查詢收藏人數失敗：{e}")
         return 0
 
+
+# ==================== 賣場區域資訊操作 ====================
+
+def get_store_area_by_name(area_name: str) -> Optional[Dict[str, Any]]:
+    """
+    根據區域名稱查詢區域資訊
+    
+    Args:
+        area_name: 區域名稱（如：飲料區、零食專區）
+    
+    Returns:
+        區域資訊，找不到則返回 None
+    """
+    if not supabase:
+        return None
+    
+    try:
+        result = supabase.table("store_areas").select("*").ilike("area_name", f"%{area_name}%").execute()
+        if result.data:
+            return result.data[0]  # 返回第一個匹配的區域
+        return None
+    except Exception as e:
+        logger.error(f"查詢區域資訊失敗：{e}")
+        return None
+
+
+def get_store_areas_by_type(area_type: str) -> List[Dict[str, Any]]:
+    """
+    根據區域類型查詢所有相關區域
+    
+    Args:
+        area_type: 區域類型（如：飲料、零食、食品）
+    
+    Returns:
+        區域列表
+    """
+    if not supabase:
+        return []
+    
+    try:
+        result = supabase.table("store_areas").select("*").eq("area_type", area_type).order("floor").execute()
+        return result.data if result.data else []
+    except Exception as e:
+        logger.error(f"查詢區域類型失敗：{e}")
+        return []
+
+
+def get_store_areas_by_floor(floor: int) -> List[Dict[str, Any]]:
+    """
+    根據樓層查詢該樓層的所有區域
+    
+    Args:
+        floor: 樓層（1-4）
+    
+    Returns:
+        區域列表
+    """
+    if not supabase:
+        return []
+    
+    try:
+        result = supabase.table("store_areas").select("*").eq("floor", floor).order("area_code").execute()
+        return result.data if result.data else []
+    except Exception as e:
+        logger.error(f"查詢樓層區域失敗：{e}")
+        return []
+
+
+def get_all_store_areas() -> List[Dict[str, Any]]:
+    """
+    查詢所有賣場區域資訊
+    
+    Returns:
+        所有區域列表，按樓層和區域代碼排序
+    """
+    if not supabase:
+        return []
+    
+    try:
+        result = supabase.table("store_areas").select("*").order("floor").order("area_code").execute()
+        return result.data if result.data else []
+    except Exception as e:
+        logger.error(f"查詢所有區域失敗：{e}")
+        return []
+
+
+def search_store_areas(search_term: str) -> List[Dict[str, Any]]:
+    """
+    搜尋區域資訊（模糊搜尋區域名稱、類型、描述）
+    
+    Args:
+        search_term: 搜尋關鍵字
+    
+    Returns:
+        區域列表
+    """
+    if not supabase:
+        return []
+    
+    try:
+        # 搜尋區域名稱
+        name_results = supabase.table("store_areas").select("*").ilike("area_name", f"%{search_term}%").execute()
+        
+        # 搜尋區域類型
+        type_results = supabase.table("store_areas").select("*").ilike("area_type", f"%{search_term}%").execute()
+        
+        # 搜尋描述
+        desc_results = supabase.table("store_areas").select("*").ilike("description", f"%{search_term}%").execute()
+        
+        # 合併結果並去重
+        all_areas = {}
+        for result_set in [name_results, type_results, desc_results]:
+            if result_set.data:
+                for area in result_set.data:
+                    all_areas[area["id"]] = area
+        
+        areas = list(all_areas.values())
+        # 按樓層和區域代碼排序
+        areas.sort(key=lambda x: (x.get("floor", 0), x.get("area_code", "")))
+        
+        return areas
+    except Exception as e:
+        logger.error(f"搜尋區域失敗：{e}")
+        return []
+

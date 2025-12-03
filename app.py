@@ -10,14 +10,20 @@ from linebot.models import (
 
 import os
 from dotenv import load_dotenv
+from typing import Dict, Any, List
 
 # 先載入環境變數，再 import 其他模組
 load_dotenv()
 
 from utils import check_environment_variables
-from supabase_utils import search_products_with_locations, add_to_favorites, remove_from_favorites, get_user_favorites, is_favorited
+from supabase_utils import (
+    search_products_with_locations, add_to_favorites, remove_from_favorites, 
+    get_user_favorites, is_favorited,
+    get_store_area_by_name, get_store_areas_by_type, get_store_areas_by_floor,
+    get_all_store_areas, search_store_areas
+)
 from vision_utils import extract_keywords_from_image_gemini
-from gemini_qa_utils import answer_question
+from gemini_qa_utils import answer_question, answer_question_with_products
 
 # 初始化環境變數檢查
 check_environment_variables()
@@ -26,6 +32,10 @@ check_environment_variables()
 app = Flask(__name__)
 line_bot_api = LineBotApi(os.getenv('CHANNEL_ACCESS_TOKEN'))
 handler = WebhookHandler(os.getenv('CHANNEL_SECRET'))
+
+# 用戶模式狀態管理（記憶體儲存）
+# key: user_id, value: 'qa' (智能問答模式) 或 None (預設商品搜尋模式)
+user_modes: Dict[str, str] = {}
 
 @app.route("/", methods=['GET'])
 def index():
@@ -60,18 +70,34 @@ def callback():
 
 # ==================== 模式判斷與路由 ====================
 
-def determine_mode(message_text: str) -> str:
+def determine_mode(message_text: str, user_id: str = None) -> str:
     """
     判斷訊息應該進入哪個模式
+    
+    Args:
+        message_text: 用戶訊息
+        user_id: 用戶 ID（用於檢查用戶當前模式）
     
     Returns:
         'qa': 智能問答模式
         'search': 商品搜尋模式
         'favorite': 收藏功能
         'help': 使用說明
+        'area': 區域查詢模式
         'search': 預設為商品搜尋模式
     """
     message_text = message_text.strip()
+    
+    # 檢查用戶當前模式（如果用戶在智能問答模式中）
+    if user_id and user_id in user_modes and user_modes[user_id] == 'qa':
+        # 檢查是否要退出智能問答模式
+        exit_keywords = ["退出", "返回", "結束", "取消", "搜尋商品", "商品搜尋"]
+        if any(keyword in message_text for keyword in exit_keywords):
+            # 清除模式狀態
+            user_modes.pop(user_id, None)
+            return 'search' if "搜尋" in message_text else 'help'
+        # 否則保持在智能問答模式
+        return 'qa'
     
     # 使用說明關鍵字
     help_keywords = ["使用說明", "說明", "幫助", "help", "如何使用", "功能"]
@@ -83,22 +109,34 @@ def determine_mode(message_text: str) -> str:
     if message_text in favorite_keywords:
         return 'favorite'
     
+    # 區域查詢關鍵字
+    area_keywords = ["區在哪", "專區在哪", "在哪裡", "在哪", "位置", "樓層", "幾樓"]
+    area_names = ["飲料區", "零食專區", "泡麵專區", "調味料區", "乳製品專區", "罐頭專區", "冷凍食品專區"]
+    if any(keyword in message_text for keyword in area_keywords) or \
+       any(area_name in message_text for area_name in area_names):
+        return 'area'
+    
     # 商品搜尋模式觸發詞（用於顯示提示）
     search_trigger_keywords = ["搜尋商品", "商品搜尋", "搜尋", "找商品"]
     if any(keyword == message_text for keyword in search_trigger_keywords):
+        # 清除智能問答模式（如果有的話）
+        if user_id:
+            user_modes.pop(user_id, None)
         return 'search_help'  # 特殊標記，用於顯示搜尋提示
-    
-    # 智能問答模式關鍵字
-    qa_keywords = ["什麼", "哪些", "哪裡", "多少", "最", "比較", "推薦", "便宜", "貴", "價格", "位置", "區"]
-    is_question = any(keyword in message_text for keyword in qa_keywords) or \
-                 message_text.endswith("?") or message_text.endswith("？")
     
     # 明確的智能問答觸發詞
     qa_trigger_keywords = ["智能問答", "問答", "問你", "請問"]
     if any(keyword in message_text for keyword in qa_trigger_keywords):
+        # 設定用戶為智能問答模式
+        if user_id:
+            user_modes[user_id] = 'qa'
         return 'qa'
     
-    # 如果包含疑問詞，進入智能問答模式
+    # 智能問答模式關鍵字（如果包含疑問詞，進入智能問答模式）
+    qa_keywords = ["什麼", "哪些", "哪裡", "多少", "最", "比較", "推薦", "便宜", "貴", "價格", "位置", "區"]
+    is_question = any(keyword in message_text for keyword in qa_keywords) or \
+                 message_text.endswith("?") or message_text.endswith("？")
+    
     if is_question:
         return 'qa'
     
@@ -207,7 +245,10 @@ def handle_qa_mode(event, question: str, user_id: str):
         is_qa_mode_trigger = any(keyword == question.strip() for keyword in qa_mode_keywords)
         
         if is_qa_mode_trigger:
-            # 用戶輸入「智能問答」等關鍵字，顯示提示訊息
+            # 用戶輸入「智能問答」等關鍵字，設定為智能問答模式並顯示提示訊息
+            # 設定用戶為智能問答模式
+            user_modes[user_id] = 'qa'
+            
             help_text = """💬 智能問答模式已開啟
 
 您可以問我任何關於商品的問題，例如：
@@ -228,23 +269,40 @@ def handle_qa_mode(event, question: str, user_id: str):
 • 有哪些商品在特價？
 • 缺貨的商品有哪些？
 
-直接輸入您的問題，我會盡力回答！"""
+💬 現在您可以直接輸入問題，我會以智能問答方式回答，如果有相關商品也會顯示商品卡片
+
+輸入「退出」或「搜尋商品」可返回商品搜尋模式"""
             
             line_bot_api.reply_message(
                 event.reply_token,
                 TextSendMessage(text=help_text)
             )
-            app.logger.info(f"[智能問答模式] 顯示使用提示給 {user_id}")
+            app.logger.info(f"[智能問答模式] 已切換到智能問答模式，顯示使用提示給 {user_id}")
             return
         
         # 正常處理問題
         app.logger.info(f"[智能問答模式] 處理問題：{question}")
-        answer = answer_question(question)
+        answer, products = answer_question_with_products(question)
+        
+        # 準備回覆訊息列表
+        messages = []
+        
+        # 1. 先回覆文字回答
+        messages.append(TextSendMessage(text=answer))
+        
+        # 2. 如果有相關商品，也顯示商品卡片
+        if products:
+            carousel_message = format_product_carousel(products, question)
+            if carousel_message:
+                messages.append(carousel_message)
+                app.logger.info(f"[智能問答模式] 同時顯示 {len(products)} 個相關商品")
+        
+        # 發送所有訊息
         line_bot_api.reply_message(
             event.reply_token,
-            TextSendMessage(text=answer)
+            messages
         )
-        app.logger.info(f"[智能問答模式] 成功回覆智能問答給 {user_id}")
+        app.logger.info(f"[智能問答模式] 成功回覆智能問答給 {user_id}（回答 + {len(products) if products else 0} 個商品）")
     except Exception as e:
         app.logger.error(f"[智能問答模式] 智能問答失敗：{str(e)}", exc_info=True)
         # 回退到商品搜尋模式
@@ -277,6 +335,12 @@ def handle_help_mode(event, user_id: str):
 • 哪裡可以找到泡麵？
 • 推薦的飲料有哪些？
 
+📍 區域查詢
+詢問區域位置，例如：
+• 飲料區在哪裡？
+• 零食專區在幾樓？
+• 冷凍食品在哪裡？
+
 ❤️ 我的收藏
 輸入「我的收藏」查看您收藏的商品
 
@@ -296,6 +360,205 @@ def handle_help_mode(event, user_id: str):
         app.logger.info(f"[使用說明] 成功回覆使用說明給 {user_id}")
     except Exception as e:
         app.logger.error(f"[使用說明] 回覆失敗：{str(e)}", exc_info=True)
+
+
+def handle_area_query_mode(event, query_text: str, user_id: str):
+    """
+    區域查詢模式：處理區域位置查詢
+    
+    Args:
+        event: LINE 事件
+        query_text: 查詢文字
+        user_id: 用戶 ID
+    """
+    try:
+        app.logger.info(f"[區域查詢模式] 查詢：{query_text}")
+        
+        # 嘗試從查詢文字中提取區域名稱
+        area_names = ["飲料區", "零食專區", "泡麵專區", "調味料區", "乳製品專區", "罐頭專區", "冷凍食品專區", "冷凍肉品區", "米類專區", "冷藏飲料區"]
+        found_area_name = None
+        for area_name in area_names:
+            if area_name in query_text:
+                found_area_name = area_name
+                break
+        
+        # 如果找到具體區域名稱，查詢該區域
+        if found_area_name:
+            area = get_store_area_by_name(found_area_name)
+            if area:
+                reply_text = format_area_info(area)
+                line_bot_api.reply_message(
+                    event.reply_token,
+                    TextSendMessage(text=reply_text)
+                )
+                app.logger.info(f"[區域查詢模式] 成功回覆區域資訊：{found_area_name}")
+                return
+        
+        # 嘗試搜尋區域類型
+        area_types = {
+            "飲料": "飲料",
+            "零食": "零食",
+            "泡麵": "食品",
+            "食品": "食品",
+            "調味料": "調味料",
+            "乳製品": "乳製品",
+            "罐頭": "罐頭",
+            "冷凍": "冷凍食品"
+        }
+        
+        found_area_type = None
+        for keyword, area_type in area_types.items():
+            if keyword in query_text:
+                found_area_type = area_type
+                break
+        
+        if found_area_type:
+            areas = get_store_areas_by_type(found_area_type)
+            if areas:
+                reply_text = format_areas_list(areas, found_area_type)
+                line_bot_api.reply_message(
+                    event.reply_token,
+                    TextSendMessage(text=reply_text)
+                )
+                app.logger.info(f"[區域查詢模式] 成功回覆區域類型：{found_area_type}")
+                return
+        
+        # 嘗試搜尋樓層
+        floor_keywords = ["1樓", "2樓", "3樓", "4樓", "一樓", "二樓", "三樓", "四樓"]
+        floor_map = {"1樓": 1, "2樓": 2, "3樓": 3, "4樓": 4, "一樓": 1, "二樓": 2, "三樓": 3, "四樓": 4}
+        found_floor = None
+        for keyword, floor_num in floor_map.items():
+            if keyword in query_text:
+                found_floor = floor_num
+                break
+        
+        if found_floor:
+            areas = get_store_areas_by_floor(found_floor)
+            if areas:
+                reply_text = format_areas_by_floor(areas, found_floor)
+                line_bot_api.reply_message(
+                    event.reply_token,
+                    TextSendMessage(text=reply_text)
+                )
+                app.logger.info(f"[區域查詢模式] 成功回覆樓層資訊：{found_floor}樓")
+                return
+        
+        # 模糊搜尋
+        areas = search_store_areas(query_text)
+        if areas:
+            reply_text = format_areas_list(areas, "相關區域")
+            line_bot_api.reply_message(
+                event.reply_token,
+                TextSendMessage(text=reply_text)
+            )
+            app.logger.info(f"[區域查詢模式] 成功回覆模糊搜尋結果：{len(areas)} 個區域")
+            return
+        
+        # 沒找到，顯示所有區域
+        all_areas = get_all_store_areas()
+        if all_areas:
+            reply_text = format_all_areas(all_areas)
+            line_bot_api.reply_message(
+                event.reply_token,
+                TextSendMessage(text=reply_text)
+            )
+            app.logger.info(f"[區域查詢模式] 顯示所有區域")
+        else:
+            reply_text = f"🔍 找不到相關區域資訊\n\n請嘗試詢問：\n• 飲料區在哪裡？\n• 零食專區在幾樓？\n• 1樓有哪些區域？"
+            line_bot_api.reply_message(
+                event.reply_token,
+                TextSendMessage(text=reply_text)
+            )
+            
+    except Exception as e:
+        app.logger.error(f"[區域查詢模式] 處理失敗：{str(e)}", exc_info=True)
+        try:
+            line_bot_api.reply_message(
+                event.reply_token,
+                TextSendMessage(text="❌ 查詢區域時發生錯誤，請稍後再試。")
+            )
+        except:
+            pass
+
+
+def format_area_info(area: Dict[str, Any]) -> str:
+    """格式化單個區域資訊"""
+    area_name = area.get("area_name", "未知區域")
+    floor = area.get("floor", 0)
+    area_code = area.get("area_code", "")
+    description = area.get("description", "")
+    notes = area.get("notes", "")
+    
+    text = f"📍 {area_name}\n\n"
+    text += f"🏢 {floor}樓\n"
+    if area_code:
+        text += f"📍 {area_code}\n"
+    if description:
+        text += f"📝 {description}\n"
+    if notes:
+        text += f"💡 {notes}\n"
+    
+    return text
+
+
+def format_areas_list(areas: List[Dict[str, Any]], area_type: str) -> str:
+    """格式化區域列表"""
+    if not areas:
+        return f"找不到{area_type}相關區域"
+    
+    text = f"📍 {area_type}相關區域：\n\n"
+    for area in areas:
+        area_name = area.get("area_name", "未知區域")
+        floor = area.get("floor", 0)
+        area_code = area.get("area_code", "")
+        text += f"• {area_name} - {floor}樓 {area_code}\n"
+    
+    return text
+
+
+def format_areas_by_floor(areas: List[Dict[str, Any]], floor: int) -> str:
+    """格式化樓層區域資訊"""
+    if not areas:
+        return f"{floor}樓沒有區域資訊"
+    
+    text = f"🏢 {floor}樓區域資訊：\n\n"
+    for area in areas:
+        area_name = area.get("area_name", "未知區域")
+        area_code = area.get("area_code", "")
+        description = area.get("description", "")
+        text += f"📍 {area_name} ({area_code})\n"
+        if description:
+            text += f"   {description}\n"
+        text += "\n"
+    
+    return text
+
+
+def format_all_areas(areas: List[Dict[str, Any]]) -> str:
+    """格式化所有區域資訊（按樓層分組）"""
+    if not areas:
+        return "目前沒有區域資訊"
+    
+    # 按樓層分組
+    floors = {}
+    for area in areas:
+        floor = area.get("floor", 0)
+        if floor not in floors:
+            floors[floor] = []
+        floors[floor].append(area)
+    
+    text = "📍 賣場區域資訊：\n\n"
+    for floor in sorted(floors.keys()):
+        text += f"🏢 {floor}樓：\n"
+        for area in floors[floor]:
+            area_name = area.get("area_name", "未知區域")
+            area_code = area.get("area_code", "")
+            text += f"  • {area_name} ({area_code})\n"
+        text += "\n"
+    
+    text += "💡 提示：可以詢問「飲料區在哪裡？」或「1樓有哪些區域？」"
+    
+    return text
 
 
 # ==================== 訊息處理器 ====================
@@ -334,13 +597,15 @@ def handle_text_message(event):
         if handle_favorite_commands(event, message_text, user_id):
             return  # 已處理收藏指令，直接返回
         
-        # 判斷模式
-        mode = determine_mode(message_text)
-        app.logger.info(f"判斷模式：{mode}")
+        # 判斷模式（傳入 user_id 以檢查用戶當前模式）
+        mode = determine_mode(message_text, user_id)
+        app.logger.info(f"判斷模式：{mode} (用戶當前模式：{user_modes.get(user_id, '無')})")
         
         # 根據模式路由到對應處理函數
         if mode == 'help':
             handle_help_mode(event, user_id)
+        elif mode == 'area':
+            handle_area_query_mode(event, message_text, user_id)
         elif mode == 'qa':
             handle_qa_mode(event, message_text, user_id)
         elif mode == 'search_help':
@@ -1040,7 +1305,7 @@ def format_favorites_flex(favorites: list):
             flex_messages.append(FlexSendMessage(alt_text=f"收藏商品：{name}", contents=bubble))
         
         return flex_messages if flex_messages else None
-        
+
     except Exception as e:
         app.logger.error(f"建立 Flex Message 失敗：{e}", exc_info=True)
         return None
