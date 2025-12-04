@@ -265,6 +265,7 @@ async def scrape_category(category_key: str, max_products: int = 20):
     print(f"URL: {category['url']}")
     print(f"{'='*60}\n")
     
+    
     async with async_playwright() as p:
         # 啟動瀏覽器
         browser = await p.chromium.launch(headless=True)
@@ -277,6 +278,7 @@ async def scrape_category(category_key: str, max_products: int = 20):
             await asyncio.sleep(2)  # 等待 JavaScript 渲染
             
             # 提取產品列表
+            
             print(f"[INFO] 正在提取產品資訊...")
             products = await extract_products_from_page(page)
             
