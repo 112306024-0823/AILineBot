@@ -186,6 +186,49 @@ def handle_postback(event, line_bot_api, app):
         action = action_data.get('action')
         product_id = action_data.get('product_id')
         source = action_data.get('source', 'search')  # 預設為 search
+        product_ids_str = action_data.get('product_ids')  # 用於「全部加入收藏」
+        recipe_name = action_data.get('recipe', '')  # 料理名稱
+        
+        # 處理「全部加入收藏」
+        if action == 'favorite_all' and product_ids_str:
+            product_ids = product_ids_str.split(',')
+            success_count = 0
+            already_count = 0
+            failed_count = 0
+            
+            for pid in product_ids:
+                pid = pid.strip()
+                if not pid:
+                    continue
+                
+                if is_favorited(user_id, pid):
+                    already_count += 1
+                else:
+                    if add_to_favorites(user_id, pid):
+                        success_count += 1
+                    else:
+                        failed_count += 1
+            
+            # 生成回覆訊息
+            reply_parts = []
+            if recipe_name:
+                reply_parts.append(f"🍳 「{recipe_name}」材料清單")
+            reply_parts.append(f"❤️ 收藏結果：")
+            if success_count > 0:
+                reply_parts.append(f"✅ 成功加入 {success_count} 個商品")
+            if already_count > 0:
+                reply_parts.append(f"📌 已有 {already_count} 個商品在收藏中")
+            if failed_count > 0:
+                reply_parts.append(f"❌ {failed_count} 個商品收藏失敗")
+            
+            reply_text = "\n".join(reply_parts)
+            
+            line_bot_api.reply_message(
+                event.reply_token,
+                TextSendMessage(text=reply_text)
+            )
+            app.logger.info(f"處理全部加入收藏完成：{user_id} - {len(product_ids)} 個商品 - 成功:{success_count} 已有:{already_count} 失敗:{failed_count}")
+            return
         
         if action == 'favorite' and product_id:
             # 檢查是否已收藏

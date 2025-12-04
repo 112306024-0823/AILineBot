@@ -94,7 +94,7 @@ def analyze_question(question: str, context: Optional[List[str]] = None) -> Dict
 請仔細分析問題，識別以下資訊並以 JSON 格式輸出：
 
 {{
-    "intent": "搜尋意圖（必填，選項：search_product, search_by_price, search_by_location, search_by_category, search_by_calories, compare_products, get_product_info, recommend_products, count_products）",
+    "intent": "搜尋意圖（必填，選項：search_product, search_by_price, search_by_location, search_by_category, search_by_calories, compare_products, get_product_info, recommend_products, count_products, recipe_ingredients）",
     "search_term": "搜尋關鍵字（商品名稱、品牌等，如果有的話，否則為 null）",
     "price_range": {{"min": 最小價格（數字或null）, "max": 最大價格（數字或null）}},
     "calories_range": {{"min": 最小卡路里（數字或null）, "max": 最大卡路里（數字或null）}},
@@ -115,6 +115,7 @@ def analyze_question(question: str, context: Optional[List[str]] = None) -> Dict
 - get_product_info: 獲取特定商品詳細資訊
 - recommend_products: 推薦商品
 - count_products: 統計商品數量
+- recipe_ingredients: 料理/食譜材料推薦（例如：想煮玉米濃湯、要做咖哩飯等）
 
 範例：
 問題：「最便宜的可樂是什麼？」
@@ -144,6 +145,12 @@ def analyze_question(question: str, context: Optional[List[str]] = None) -> Dict
 問題：「最健康的飲料是什麼？」（健康通常指低卡路里）
 輸出：{{"intent": "search_by_calories", "search_term": null, "price_range": {{"min": null, "max": null}}, "calories_range": {{"min": null, "max": 50}}, "location": null, "category": "飲料", "sort_by": "calories_asc", "limit": 10, "comparison_products": []}}
 
+問題：「晚餐想煮玉米濃湯」
+輸出：{{"intent": "recipe_ingredients", "search_term": "玉米濃湯", "price_range": {{"min": null, "max": null}}, "calories_range": {{"min": null, "max": null}}, "location": null, "category": null, "sort_by": null, "limit": 20, "comparison_products": []}}
+
+問題：「想做咖哩飯」
+輸出：{{"intent": "recipe_ingredients", "search_term": "咖哩飯", "price_range": {{"min": null, "max": null}}, "calories_range": {{"min": null, "max": null}}, "location": null, "category": null, "sort_by": null, "limit": 20, "comparison_products": []}}
+
 重要規則：
 1. 仔細識別問題中的關鍵資訊（價格、位置、分類、商品名稱、卡路里/熱量）
 2. 如果問題包含「最便宜」「最貴」，sort_by 應設為 price_asc 或 price_desc
@@ -152,7 +159,8 @@ def analyze_question(question: str, context: Optional[List[str]] = None) -> Dict
 5. 如果問題包含「卡路里」「熱量」「大卡」「kcal」，要識別數值範圍並填入 calories_range
 6. 如果問題包含「推薦」「建議」，intent 應設為 recommend_products
 7. 如果問題包含「比較」「對比」，intent 應設為 compare_products，並在 comparison_products 中列出要比較的商品
-8. 只輸出 JSON，不要其他文字或說明
+8. 如果問題包含「想煮」「想做」「要煮」「要做」「料理」「食譜」「材料」，intent 應設為 recipe_ingredients，search_term 設為料理名稱（例如：玉米濃湯、咖哩飯、義大利麵）
+9. 只輸出 JSON，不要其他文字或說明
 """
         
         response = model.generate_content(prompt)
@@ -240,6 +248,52 @@ def query_database(analysis: Dict[str, Any]) -> List[Dict[str, Any]]:
         category = analysis.get("category")
         sort_by = analysis.get("sort_by", "name")
         comparison_products = analysis.get("comparison_products", [])
+        
+        # 處理料理材料查詢
+        if intent == "recipe_ingredients":
+            recipe_name = search_term or ""
+            if recipe_name:
+                # 使用 Gemini 生成材料清單
+                ingredients = get_recipe_ingredients(recipe_name)
+                if ingredients:
+                    # 搜尋每個材料對應的商品
+                    products = []
+                    for ingredient in ingredients:
+                        # 搜尋材料名稱
+                        ingredient_products = search_products_with_locations(ingredient, limit=3)
+                        if ingredient_products:
+                            # 選擇第一個最相關的商品
+                            products.append(ingredient_products[0])
+                    
+                    # 為每個商品添加位置資訊
+                    for product in products:
+                        try:
+                            product["locations"] = get_product_locations(product["id"])
+                        except Exception as e:
+                            logger.error(f"獲取商品位置失敗：{e}")
+                            product["locations"] = []
+                    
+                    # 儲存材料清單和料理名稱到商品資料中（用於後續生成回答）
+                    for product in products:
+                        product["_recipe_name"] = recipe_name
+                        product["_ingredients"] = ingredients
+                    
+                    logger.info(f"料理材料查詢結果：找到 {len(products)} 個商品（料理：{recipe_name}）")
+                    return products
+            
+            # 如果無法生成材料清單，回退到一般搜尋
+            logger.warning(f"無法生成料理材料清單，回退到一般搜尋：{recipe_name}")
+            if search_term:
+                products = search_products_with_locations(search_term, limit=limit)
+                for product in products:
+                    try:
+                        product["locations"] = get_product_locations(product["id"])
+                    except Exception as e:
+                        logger.error(f"獲取商品位置失敗：{e}")
+                        product["locations"] = []
+                return products
+            else:
+                return []
         
         # 處理比較商品查詢
         if intent == "compare_products" and comparison_products:
@@ -556,6 +610,47 @@ def generate_answer(question: str, products: List[Dict[str, Any]], analysis: Dic
         
         intent = analysis.get("intent", "search_product")
         
+        # 處理料理材料推薦
+        if intent == "recipe_ingredients" and products:
+            recipe_name = products[0].get("_recipe_name", analysis.get("search_term", "這道料理"))
+            ingredients = products[0].get("_ingredients", [])
+            
+            # 生成料理材料推薦回答
+            answer = f"🍳 「{recipe_name}」所需材料：\n\n"
+            
+            if ingredients:
+                answer += "📋 材料清單：\n"
+                for i, ingredient in enumerate(ingredients, 1):
+                    answer += f"{i}. {ingredient}\n"
+                answer += "\n"
+            
+            if products:
+                answer += f"🛒 找到 {len(products)} 個相關商品：\n\n"
+                for i, product in enumerate(products[:10], 1):
+                    name = product.get("name", "未知商品")
+                    price = product.get("price", 0)
+                    answer += f"【{i}】{name}\n"
+                    answer += f"   💰 價格：${float(price):.0f}\n"
+                    
+                    locations = product.get("locations", [])
+                    if locations:
+                        loc = locations[0]
+                        area = loc.get("area", "")
+                        shelf = loc.get("shelf", "")
+                        if area:
+                            location_str = area
+                            if shelf:
+                                location_str += f" - {shelf}"
+                            answer += f"   📍 位置：{location_str}\n"
+                    answer += "\n"
+                
+                if len(products) > 10:
+                    answer += f"💡 還有 {len(products) - 10} 個商品未顯示\n\n"
+            
+            answer += "💡 提示：您可以使用快速回復按鈕「❤️ 全部加入收藏」來一次收藏所有材料！"
+            
+            return answer
+        
         # 格式化商品資料（改進版）
         products_text = ""
         if products:
@@ -778,4 +873,71 @@ def answer_question_with_products(question: str) -> Tuple[str, List[Dict[str, An
     except Exception as e:
         logger.error(f"處理問題失敗：{e}", exc_info=True)
         return "抱歉，處理您的問題時發生錯誤。請稍後再試或嘗試其他問題。", []
+
+
+def get_recipe_ingredients(recipe_name: str) -> List[str]:
+    """
+    使用 Gemini 生成料理所需材料清單
+    
+    Args:
+        recipe_name: 料理名稱（例如：玉米濃湯、咖哩飯）
+    
+    Returns:
+        材料名稱列表
+    """
+    try:
+        model = genai.GenerativeModel("gemini-2.5-flash")
+        
+        prompt = f"""
+你是一個專業的料理助手。請為「{recipe_name}」這道料理列出所有需要的食材材料。
+
+請以 JSON 格式輸出，格式如下：
+{{
+    "ingredients": ["材料1", "材料2", "材料3", ...]
+}}
+
+要求：
+1. 列出所有主要食材和調味料
+2. 使用常見的食材名稱（例如：玉米、奶油、牛奶、鹽、胡椒，而不是「玉米粒」「無鹽奶油」等過於具體的名稱）
+3. 排除廚房用具（例如：鍋子、湯匙）
+4. 排除已經處理好的半成品（例如：如果列出「玉米罐頭」也可以，但優先列出「玉米」）
+5. 材料名稱要簡潔，適合在超市搜尋
+6. 只輸出 JSON，不要其他文字
+
+範例：
+料理：玉米濃湯
+輸出：{{"ingredients": ["玉米", "奶油", "牛奶", "麵粉", "鹽", "胡椒", "洋蔥"]}}
+
+料理：咖哩飯
+輸出：{{"ingredients": ["米", "咖哩塊", "馬鈴薯", "紅蘿蔔", "洋蔥", "肉", "水"]}}
+"""
+        
+        response = model.generate_content(prompt)
+        result_text = response.text.strip()
+        
+        # 移除可能的 markdown 格式
+        if result_text.startswith("```json"):
+            result_text = result_text[7:]
+        if result_text.startswith("```"):
+            result_text = result_text[3:]
+        if result_text.endswith("```"):
+            result_text = result_text[:-3]
+        result_text = result_text.strip()
+        
+        import json
+        try:
+            data = json.loads(result_text)
+            ingredients = data.get("ingredients", [])
+            logger.info(f"為「{recipe_name}」生成材料清單：{ingredients}")
+            return ingredients
+        except json.JSONDecodeError as e:
+            logger.warning(f"JSON 解析失敗：{e}")
+            logger.warning(f"原始回應：{result_text}")
+            # 嘗試從文字中提取材料名稱
+            # 簡單的回退方案：返回空列表
+            return []
+        
+    except Exception as e:
+        logger.error(f"生成料理材料清單失敗：{e}", exc_info=True)
+        return []
 

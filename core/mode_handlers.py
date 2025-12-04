@@ -6,7 +6,7 @@ import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from linebot.models import TextSendMessage
+from linebot.models import TextSendMessage, QuickReply, QuickReplyButton, PostbackAction, MessageAction
 from supabase_utils import (
     search_products_with_locations,
     get_store_area_by_name, get_store_areas_by_type, get_store_areas_by_floor,
@@ -135,27 +135,29 @@ def handle_qa_mode(event, question: str, user_id: str, line_bot_api, app):
             
             help_text = """💬 智能問答模式已開啟
 
-您可以問我任何關於商品的問題，例如：
+您可以問我任何關於商品的問題：
 
-🔍 價格相關
-• 最便宜的可樂是什麼？
-• 哪個品牌的泡麵最貴？
+🍳 料理助手
+• 晚餐想煮玉米濃湯
+• 想做咖哩飯需要什麼材料？
+→ 自動推薦食材，可一鍵收藏！
 
-📍 位置相關
-• 可樂在哪裡？
-• 哪裡可以找到泡麵？
+💰 價格搜尋
+• 最便宜的可樂是哪個？
+• 100元以下的零食有哪些？
 
-📊 比較與推薦
-• 推薦的飲料有哪些？
-• 比較可樂和雪碧的價格
+🔥 健康飲食
+• 低卡路里的飲料推薦
+• 200大卡以下的零食
 
-💡 其他問題
-• 有哪些商品在特價？
-• 缺貨的商品有哪些？
+📊 商品推薦
+• 推薦好喝的飲料跟零食
 
-💬 現在您可以直接輸入問題，我會以智能問答方式回答，如果有相關商品也會顯示商品卡片
+📍 位置查詢
+• 牛奶在哪裡？
+• 1樓、A區、B區有什麼商品？
 
-輸入「退出」或「搜尋商品」可返回商品搜尋模式"""
+💬 直接輸入問題即可，我會顯示相關商品卡片供您選購！"""
             
             message = TextSendMessage(text=help_text)
             message = add_quick_reply_to_message(message, mode='qa')
@@ -170,20 +172,97 @@ def handle_qa_mode(event, question: str, user_id: str, line_bot_api, app):
         app.logger.info(f"[智能問答模式] 處理問題：{question}")
         answer, products = answer_question_with_products(question)
         
+        # 檢查是否為料理材料推薦
+        is_recipe_recommendation = False
+        recipe_name = ""
+        product_ids_for_favorite = []
+        
+        if products and len(products) > 0:
+            # 檢查第一個商品是否有料理資訊
+            first_product = products[0]
+            if "_recipe_name" in first_product:
+                is_recipe_recommendation = True
+                recipe_name = first_product.get("_recipe_name", "")
+                # 收集所有商品的 ID
+                product_ids_for_favorite = [p.get("id") for p in products if p.get("id")]
+        
         # 準備回覆訊息列表
         messages = []
         
-        # 1. 先回覆文字回答（帶快速回復）
+        # 1. 先回覆文字回答（不帶快速回復，因為快速回復會附加到最後一個訊息）
         answer_message = TextSendMessage(text=answer)
-        answer_message = add_quick_reply_to_message(answer_message, mode='qa')
         messages.append(answer_message)
         
         # 2. 如果有相關商品，也顯示商品卡片
         if products:
             carousel_message = format_product_carousel(products, question, line_bot_api, app, mode='qa')
             if carousel_message:
+                # 如果是料理材料推薦，將「全部加入收藏」按鈕附加到 carousel（最後一個訊息）
+                if is_recipe_recommendation and product_ids_for_favorite:
+                    buttons = [
+                        QuickReplyButton(
+                            action=PostbackAction(
+                                label="❤️ 全部加入收藏",
+                                data=f"action=favorite_all&product_ids={','.join(product_ids_for_favorite)}&recipe={recipe_name}"
+                            )
+                        ),
+                        QuickReplyButton(
+                            action=MessageAction(label="🔍 商品搜尋", text="搜尋商品")
+                        ),
+                        QuickReplyButton(
+                            action=MessageAction(label="📖 使用說明", text="使用說明")
+                        )
+                    ]
+                    carousel_message.quick_reply = QuickReply(items=buttons)
+                
                 messages.append(carousel_message)
                 app.logger.info(f"[智能問答模式] 同時顯示 {len(products)} 個相關商品")
+            else:
+                # 如果沒有 carousel，將快速回復附加到文字訊息
+                if is_recipe_recommendation and product_ids_for_favorite:
+                    buttons = [
+                        QuickReplyButton(
+                            action=PostbackAction(
+                                label="❤️ 全部加入收藏",
+                                data=f"action=favorite_all&product_ids={','.join(product_ids_for_favorite)}&recipe={recipe_name}"
+                            )
+                        ),
+                        QuickReplyButton(
+                            action=MessageAction(label="🔍 商品搜尋", text="搜尋商品")
+                        ),
+                        QuickReplyButton(
+                            action=MessageAction(label="📖 使用說明", text="使用說明")
+                        )
+                    ]
+                    answer_message.quick_reply = QuickReply(items=buttons)
+                else:
+                    answer_message = add_quick_reply_to_message(answer_message, mode='qa')
+                    # 更新 messages 列表中的最後一個訊息
+                    messages[-1] = answer_message
+        else:
+            # 如果沒有商品，將快速回復附加到文字訊息
+            if is_recipe_recommendation and product_ids_for_favorite:
+                buttons = [
+                    QuickReplyButton(
+                        action=PostbackAction(
+                            label="❤️ 全部加入收藏",
+                            data=f"action=favorite_all&product_ids={','.join(product_ids_for_favorite)}&recipe={recipe_name}"
+                        )
+                    ),
+                    QuickReplyButton(
+                        action=MessageAction(label="🔍 商品搜尋", text="搜尋商品")
+                    ),
+                    QuickReplyButton(
+                        action=MessageAction(label="📖 使用說明", text="使用說明")
+                    )
+                ]
+                answer_message.quick_reply = QuickReply(items=buttons)
+                # 更新 messages 列表中的最後一個訊息
+                messages[-1] = answer_message
+            else:
+                answer_message = add_quick_reply_to_message(answer_message, mode='qa')
+                # 更新 messages 列表中的最後一個訊息
+                messages[-1] = answer_message
         
         # 發送所有訊息
         line_bot_api.reply_message(
