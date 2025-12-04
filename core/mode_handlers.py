@@ -19,6 +19,7 @@ from core.formatters import (
     add_quick_reply_to_message
 )
 from core.mode_router import user_modes
+from core.map_handler import handle_location_query_with_map, is_location_query
 
 
 def handle_product_search_mode(event, search_term: str, user_id: str, line_bot_api, app):
@@ -171,6 +172,29 @@ def handle_qa_mode(event, question: str, user_id: str, line_bot_api, app):
         # 正常處理問題
         app.logger.info(f"[智能問答模式] 處理問題：{question}")
         answer, products = answer_question_with_products(question)
+        
+        # 檢查是否為位置查詢（如果是，嘗試生成地圖）
+        if is_location_query(question) and products:
+            app.logger.info(f"[智能問答模式] 偵測到位置查詢，嘗試生成地圖")
+            map_messages, map_url = handle_location_query_with_map(
+                products=products,
+                search_term=question,
+                line_bot_api=line_bot_api,
+                app=app
+            )
+            
+            if map_messages and map_url:
+                # 有地圖，在地圖訊息後加上快速回復
+                last_message = map_messages[-1]
+                last_message = add_quick_reply_to_message(last_message, mode='qa')
+                map_messages[-1] = last_message
+                
+                line_bot_api.reply_message(
+                    event.reply_token,
+                    map_messages
+                )
+                app.logger.info(f"[智能問答模式] 成功回覆地圖給 {user_id}")
+                return
         
         # 檢查是否為料理材料推薦
         is_recipe_recommendation = False

@@ -20,9 +20,22 @@ from core.handlers import handle_text_message, handle_image_message, handle_post
 check_environment_variables()
 
 # 初始化 Flask 和 LINE API
-app = Flask(__name__)
+# 設定靜態檔案路徑
+app = Flask(__name__, static_folder='static', static_url_path='/static')
+
+# 設定 BASE_URL（用於生成圖片 URL）
+# 優先使用環境變數，沒有則使用預設值
+base_url = os.getenv('BASE_URL')
+if base_url:
+    app.config['BASE_URL'] = base_url
+    app.logger.info(f"BASE_URL 已設定：{base_url}")
+
 line_bot_api = LineBotApi(os.getenv('CHANNEL_ACCESS_TOKEN'))
 handler = WebhookHandler(os.getenv('CHANNEL_SECRET'))
+
+# 確保生成地圖目錄存在
+generated_maps_dir = os.path.join(os.path.dirname(__file__), 'static', 'generated_maps')
+os.makedirs(generated_maps_dir, exist_ok=True)
 
 
 @app.route("/", methods=['GET'])

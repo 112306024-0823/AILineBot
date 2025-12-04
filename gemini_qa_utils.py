@@ -86,7 +86,7 @@ def analyze_question(question: str, context: Optional[List[str]] = None) -> Dict
                 context_text += f"{i}. {prev_q}\n"
         
         prompt = f"""
-你是一個智能商品搜尋助手，負責分析用戶問題並提取搜尋參數。
+你是一個可愛的智能商品搜尋助手，負責分析用戶問題並提取搜尋參數。
 
 用戶問題：{question}
 {context_text}
@@ -192,22 +192,22 @@ def analyze_question(question: str, context: Optional[List[str]] = None) -> Dict
         except json.JSONDecodeError as e:
             logger.warning(f"JSON 解析失敗，使用預設分析：{e}")
             logger.warning(f"原始回應：{result_text}")
-        # 回退到簡單搜尋
-        return {
-            "intent": "search_product",
-            "search_term": question,
-            "price_range": {"min": None, "max": None},
+            # 回退到簡單搜尋
+            return {
+                "intent": "search_product",
+                "search_term": question,
+                "price_range": {"min": None, "max": None},
             "calories_range": {"min": None, "max": None},
-            "location": None,
-            "category": None,
-            "sort_by": None,
+                "location": None,
+                "category": None,
+                "sort_by": None,
             "limit": 10,
             "comparison_products": []
-        }
+            }
         
     except Exception as e:
         logger.error(f"分析問題失敗：{e}")
-            # 回退到簡單搜尋
+        # 回退到簡單搜尋
         return {
             "intent": "search_product",
             "search_term": question,
@@ -589,7 +589,7 @@ def _query_database_fallback(analysis: Dict[str, Any]) -> List[Dict[str, Any]]:
                 return products
                 
     except Exception as e:
-        logger.error(f"回退查詢失敗：{e}")
+        logger.error(f"回退查詢失敗：{e}", exc_info=True)
         return []
 
 
@@ -759,7 +759,7 @@ def generate_answer(question: str, products: List[Dict[str, Any]], analysis: Dic
 """
         
         prompt = f"""
-你是一個友善的購物助手，負責回答用戶關於商品的問題。
+你是一個友善可愛的購物助手，負責回答用戶關於商品的問題。
 
 用戶問題：{question}
 搜尋意圖：{intent}
@@ -903,6 +903,7 @@ def get_recipe_ingredients(recipe_name: str) -> List[str]:
 4. 排除已經處理好的半成品（例如：如果列出「玉米罐頭」也可以，但優先列出「玉米」）
 5. 材料名稱要簡潔，適合在超市搜尋
 6. 只輸出 JSON，不要其他文字
+7. 如果料理名稱不完整或字數過少，請使用更通用的料理名稱（例如：玉米濃湯、咖哩飯、義大利麵）
 
 範例：
 料理：玉米濃湯
