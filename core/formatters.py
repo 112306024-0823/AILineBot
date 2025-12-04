@@ -6,7 +6,8 @@ from typing import Dict, Any, List, Optional
 from linebot.models import (
     TemplateSendMessage, CarouselTemplate, CarouselColumn,
     MessageAction, PostbackAction, TextSendMessage,
-    FlexSendMessage, BubbleContainer, BoxComponent, TextComponent, ImageComponent, ButtonComponent
+    FlexSendMessage, BubbleContainer, BoxComponent, TextComponent, ImageComponent, ButtonComponent,
+    QuickReply, QuickReplyButton
 )
 import logging
 
@@ -86,7 +87,7 @@ def format_product_search_result(products: list, search_term: str) -> str:
     return result_text
 
 
-def format_product_carousel(products: list, search_term: str, line_bot_api=None, app=None):
+def format_product_carousel(products: list, search_term: str, line_bot_api=None, app=None, mode: str = 'search'):
     """
     格式化產品搜尋結果為 LINE Carousel Template（圖片+文字）
     
@@ -95,6 +96,7 @@ def format_product_carousel(products: list, search_term: str, line_bot_api=None,
         search_term: 搜尋關鍵字
         line_bot_api: LINE Bot API 實例（用於日誌，可選）
         app: Flask app 實例（用於日誌，可選）
+        mode: 當前模式（'search', 'qa', 'default'），用於設定快速回復按鈕
     
     Returns:
         TemplateSendMessage 或 None（如果沒有商品）
@@ -207,6 +209,9 @@ def format_product_carousel(products: list, search_term: str, line_bot_api=None,
         alt_text=f"找到 {len(columns)} 個包含「{search_term}」的產品",
         template=carousel_template
     )
+    
+    # 加入快速回復按鈕
+    template_message.quick_reply = create_quick_reply_buttons(mode)
     
     return template_message
 
@@ -569,4 +574,81 @@ def format_favorites_flex(favorites: list, app=None) -> Optional[List[FlexSendMe
             app.logger.error(f"建立 Flex Message 失敗：{e}", exc_info=True)
         logger.error(f"建立 Flex Message 失敗：{e}", exc_info=True)
         return None
+
+
+def create_quick_reply_buttons(mode: str = 'default') -> QuickReply:
+    """
+    創建快速回復按鈕
+    
+    Args:
+        mode: 當前模式 ('search', 'qa', 'default')
+            - 'search': 商品搜尋模式，顯示「智能問答」按鈕
+            - 'qa': 智能問答模式，顯示「商品搜尋」按鈕
+            - 'default': 預設模式，顯示所有主要功能按鈕
+    
+    Returns:
+        QuickReply 物件
+    """
+    buttons = []
+    
+    if mode == 'search':
+        # 商品搜尋模式：顯示切換到智能問答的按鈕
+        buttons = [
+            QuickReplyButton(
+                action=MessageAction(label="💬 智能問答", text="智能問答")
+            ),
+            QuickReplyButton(
+                action=MessageAction(label="❤️ 我的收藏", text="我的收藏")
+            ),
+            QuickReplyButton(
+                action=MessageAction(label="📖 使用說明", text="使用說明")
+            )
+        ]
+    elif mode == 'qa':
+        # 智能問答模式：顯示切換到商品搜尋的按鈕
+        buttons = [
+            QuickReplyButton(
+                action=MessageAction(label="🔍 商品搜尋", text="搜尋商品")
+            ),
+            QuickReplyButton(
+                action=MessageAction(label="❤️ 我的收藏", text="我的收藏")
+            ),
+            QuickReplyButton(
+                action=MessageAction(label="📖 使用說明", text="使用說明")
+            )
+        ]
+    else:
+        # 預設模式：顯示所有主要功能
+        buttons = [
+            QuickReplyButton(
+                action=MessageAction(label="🔍 商品搜尋", text="搜尋商品")
+            ),
+            QuickReplyButton(
+                action=MessageAction(label="💬 智能問答", text="智能問答")
+            ),
+            QuickReplyButton(
+                action=MessageAction(label="❤️ 我的收藏", text="我的收藏")
+            ),
+            QuickReplyButton(
+                action=MessageAction(label="📖 使用說明", text="使用說明")
+            )
+        ]
+    
+    return QuickReply(items=buttons)
+
+
+def add_quick_reply_to_message(message: TextSendMessage, mode: str = 'default') -> TextSendMessage:
+    """
+    為文字訊息添加快速回復按鈕
+    
+    Args:
+        message: TextSendMessage 物件
+        mode: 當前模式
+    
+    Returns:
+        帶有快速回復的 TextSendMessage
+    """
+    quick_reply = create_quick_reply_buttons(mode)
+    message.quick_reply = quick_reply
+    return message
 

@@ -2,6 +2,10 @@
 模式處理函數模組
 負責處理不同模式的業務邏輯
 """
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from linebot.models import TextSendMessage
 from supabase_utils import (
     search_products_with_locations,
@@ -9,11 +13,12 @@ from supabase_utils import (
     get_all_store_areas, search_store_areas
 )
 from gemini_qa_utils import answer_question_with_products
-from formatters import (
+from core.formatters import (
     format_product_carousel, format_product_search_result,
-    format_area_info, format_areas_list, format_areas_by_floor, format_all_areas
+    format_area_info, format_areas_list, format_areas_by_floor, format_all_areas,
+    add_quick_reply_to_message
 )
-from mode_router import user_modes
+from core.mode_router import user_modes
 
 
 def handle_product_search_mode(event, search_term: str, user_id: str, line_bot_api, app):
@@ -55,9 +60,11 @@ def handle_product_search_mode(event, search_term: str, user_id: str, line_bot_a
 
 直接輸入商品名稱或上傳圖片即可開始搜尋！"""
             
+            message = TextSendMessage(text=help_text)
+            message = add_quick_reply_to_message(message, mode='search')
             line_bot_api.reply_message(
                 event.reply_token,
-                TextSendMessage(text=help_text)
+                message
             )
             app.logger.info(f"[商品搜尋模式] 顯示使用提示給 {user_id}")
             return
@@ -69,7 +76,7 @@ def handle_product_search_mode(event, search_term: str, user_id: str, line_bot_a
         
         if products:
             # 嘗試使用 Carousel 顯示產品（圖片+文字）
-            carousel_message = format_product_carousel(products, search_term, line_bot_api, app)
+            carousel_message = format_product_carousel(products, search_term, line_bot_api, app, mode='search')
             if carousel_message:
                 # 有圖片，使用 Carousel
                 line_bot_api.reply_message(
@@ -80,16 +87,20 @@ def handle_product_search_mode(event, search_term: str, user_id: str, line_bot_a
             else:
                 # 沒有圖片，回退到文字訊息
                 reply_text = format_product_search_result(products, search_term)
+                message = TextSendMessage(text=reply_text)
+                message = add_quick_reply_to_message(message, mode='search')
                 line_bot_api.reply_message(
                     event.reply_token,
-                    TextSendMessage(text=reply_text)
+                    message
                 )
                 app.logger.info(f"[商品搜尋模式] 成功回覆文字訊息給 {user_id}: {len(products)} 個產品")
         else:
             reply_text = f"🔍 找不到包含「{search_term}」的產品\n\n請嘗試其他關鍵字搜尋。"
+            message = TextSendMessage(text=reply_text)
+            message = add_quick_reply_to_message(message, mode='search')
             line_bot_api.reply_message(
                 event.reply_token,
-                TextSendMessage(text=reply_text)
+                message
             )
     except Exception as e:
         app.logger.error(f"[商品搜尋模式] 搜尋時發生錯誤: {str(e)}", exc_info=True)
@@ -146,9 +157,11 @@ def handle_qa_mode(event, question: str, user_id: str, line_bot_api, app):
 
 輸入「退出」或「搜尋商品」可返回商品搜尋模式"""
             
+            message = TextSendMessage(text=help_text)
+            message = add_quick_reply_to_message(message, mode='qa')
             line_bot_api.reply_message(
                 event.reply_token,
-                TextSendMessage(text=help_text)
+                message
             )
             app.logger.info(f"[智能問答模式] 已切換到智能問答模式，顯示使用提示給 {user_id}")
             return
@@ -160,12 +173,14 @@ def handle_qa_mode(event, question: str, user_id: str, line_bot_api, app):
         # 準備回覆訊息列表
         messages = []
         
-        # 1. 先回覆文字回答
-        messages.append(TextSendMessage(text=answer))
+        # 1. 先回覆文字回答（帶快速回復）
+        answer_message = TextSendMessage(text=answer)
+        answer_message = add_quick_reply_to_message(answer_message, mode='qa')
+        messages.append(answer_message)
         
         # 2. 如果有相關商品，也顯示商品卡片
         if products:
-            carousel_message = format_product_carousel(products, question, line_bot_api, app)
+            carousel_message = format_product_carousel(products, question, line_bot_api, app, mode='qa')
             if carousel_message:
                 messages.append(carousel_message)
                 app.logger.info(f"[智能問答模式] 同時顯示 {len(products)} 個相關商品")
@@ -228,9 +243,11 @@ def handle_help_mode(event, user_id: str, line_bot_api, app):
 • 有任何問題都可以問我！"""
     
     try:
+        message = TextSendMessage(text=help_text)
+        message = add_quick_reply_to_message(message, mode='default')
         line_bot_api.reply_message(
             event.reply_token,
-            TextSendMessage(text=help_text)
+            message
         )
         app.logger.info(f"[使用說明] 成功回覆使用說明給 {user_id}")
     except Exception as e:

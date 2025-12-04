@@ -2,20 +2,25 @@
 事件處理器模組
 負責處理 LINE Bot 的各種事件（文字、圖片、Postback）
 """
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from linebot.models import TextSendMessage
 from supabase_utils import (
     search_products_with_locations, add_to_favorites, remove_from_favorites,
     get_user_favorites, is_favorited
 )
 from vision_utils import extract_keywords_from_image_gemini
-from mode_router import determine_mode, user_modes
-from mode_handlers import (
+from core.mode_router import determine_mode, user_modes
+from core.mode_handlers import (
     handle_product_search_mode, handle_qa_mode,
     handle_help_mode, handle_area_query_mode
 )
-from formatters import (
+from core.formatters import (
     format_product_carousel, format_product_search_result,
-    format_favorites_flex, format_favorites_carousel
+    format_favorites_flex, format_favorites_carousel,
+    add_quick_reply_to_message
 )
 
 
@@ -106,13 +111,15 @@ def handle_image_message(event, line_bot_api, app):
 
         # 如果第一階段有找到 → 用原本邏輯回覆
         if products:
-            carousel = format_product_carousel(products, hit_keyword, line_bot_api, app)
+            carousel = format_product_carousel(products, hit_keyword, line_bot_api, app, mode='search')
             if carousel:
                 line_bot_api.reply_message(event.reply_token, carousel)
                 app.logger.info(f"[商品搜尋模式-圖片] 成功回覆 Carousel：{len(products)} 個產品")
             else:
                 reply_text = format_product_search_result(products, hit_keyword)
-                line_bot_api.reply_message(event.reply_token, TextSendMessage(text=reply_text))
+                message = TextSendMessage(text=reply_text)
+                message = add_quick_reply_to_message(message, mode='search')
+                line_bot_api.reply_message(event.reply_token, message)
                 app.logger.info(f"[商品搜尋模式-圖片] 成功回覆文字訊息：{len(products)} 個產品")
             return  
 
@@ -128,17 +135,21 @@ def handle_image_message(event, line_bot_api, app):
 
         if merged_products_list:
             # 回傳合併搜尋結果
-            carousel = format_product_carousel(merged_products_list, " ".join(keywords), line_bot_api, app)
+            carousel = format_product_carousel(merged_products_list, " ".join(keywords), line_bot_api, app, mode='search')
             if carousel:
                 line_bot_api.reply_message(event.reply_token, carousel)
                 app.logger.info(f"[商品搜尋模式-圖片] 成功回覆合併搜尋結果：{len(merged_products_list)} 個產品")
             else:
                 reply_text = format_product_search_result(merged_products_list, " ".join(keywords))
-                line_bot_api.reply_message(event.reply_token, TextSendMessage(text=reply_text))
+                message = TextSendMessage(text=reply_text)
+                message = add_quick_reply_to_message(message, mode='search')
+                line_bot_api.reply_message(event.reply_token, message)
         else:
             # 完全找不到 → 回傳 Gemini 辨識內容
             reply_text = f"📷 圖片辨識結果：\n\n{full_text}\n\n🔍 未找到相符商品，請嘗試其他關鍵字搜尋。"
-            line_bot_api.reply_message(event.reply_token, TextSendMessage(text=reply_text))
+            message = TextSendMessage(text=reply_text)
+            message = add_quick_reply_to_message(message, mode='search')
+            line_bot_api.reply_message(event.reply_token, message)
             app.logger.info(f"[商品搜尋模式-圖片] 未找到商品，回傳辨識內容")
 
     except Exception as e:
@@ -242,9 +253,11 @@ def handle_favorite_commands(event, message_text: str, user_id: str, line_bot_ap
             
             if not favorites:
                 reply_text = "📭 您還沒有收藏任何商品\n\n搜尋商品後，點擊「收藏商品」按鈕即可收藏！"
+                message = TextSendMessage(text=reply_text)
+                message = add_quick_reply_to_message(message, mode='default')
                 line_bot_api.reply_message(
                     event.reply_token,
-                    TextSendMessage(text=reply_text)
+                    message
                 )
             else:
                 # 優先使用 Flex Message（更美觀的卡片式呈現）
@@ -272,9 +285,11 @@ def handle_favorite_commands(event, message_text: str, user_id: str, line_bot_ap
                         for idx, product in enumerate(favorites[:10], 1):
                             reply_text += f"【{idx}】{product.get('name', '未知產品')}\n"
                             reply_text += f"💰 ${float(product.get('price', 0)):.0f}\n\n"
+                        message = TextSendMessage(text=reply_text)
+                        message = add_quick_reply_to_message(message, mode='default')
                         line_bot_api.reply_message(
                             event.reply_token,
-                            TextSendMessage(text=reply_text)
+                            message
                         )
             return True
         

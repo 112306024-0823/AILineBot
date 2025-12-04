@@ -14,7 +14,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from utils import check_environment_variables
-from handlers import handle_text_message, handle_image_message, handle_postback
+from core.handlers import handle_text_message, handle_image_message, handle_postback
 
 # 初始化環境變數檢查
 check_environment_variables()
