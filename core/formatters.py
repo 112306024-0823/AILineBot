@@ -409,12 +409,66 @@ def format_favorites_carousel(favorites: list) -> Optional[TemplateSendMessage]:
         template=carousel_template
     )
     
+    # 加入快速回復按鈕
+    template_message.quick_reply = create_quick_reply_buttons(mode='default')
+    
     return template_message
+
+
+def format_favorites_compact(favorites: list, app=None) -> Optional[TextSendMessage]:
+    """
+    格式化收藏列表為緊湊的文字格式（節省空間）
+    
+    Args:
+        favorites: 收藏的商品列表
+        app: Flask app 實例（用於日誌，可選）
+    
+    Returns:
+        TextSendMessage 或 None
+    """
+    if not favorites:
+        return None
+    
+    try:
+        # 建立緊湊的文字格式
+        text = f"❤️ 我的收藏（共 {len(favorites)} 個商品）\n\n"
+        
+        for idx, product in enumerate(favorites[:20], 1):  # 最多顯示 20 個
+            name = product.get('name', '未知產品')
+            price = float(product.get('price', 0))
+            stock = product.get('stock', 0)
+            
+            # 處理存貨狀態
+            if stock is None:
+                stock = 0
+            else:
+                try:
+                    stock = int(stock)
+                except (ValueError, TypeError):
+                    stock = 0
+            
+            # 簡化顯示：名稱、價格、存貨狀態
+            stock_icon = "✅" if stock > 0 else "❌"
+            text += f"{idx}. {name[:35]}\n"
+            text += f"   💰 ${price:.0f}  {stock_icon}\n\n"
+        
+        if len(favorites) > 20:
+            text += f"... 還有 {len(favorites) - 20} 個商品\n"
+        
+        text += "\n💡 點擊商品名稱可查看詳情"
+        
+        return TextSendMessage(text=text)
+        
+    except Exception as e:
+        if app:
+            app.logger.error(f"建立收藏列表失敗：{e}", exc_info=True)
+        logger.error(f"建立收藏列表失敗：{e}", exc_info=True)
+        return None
 
 
 def format_favorites_flex(favorites: list, app=None) -> Optional[List[FlexSendMessage]]:
     """
-    格式化收藏列表為 LINE Flex Message（更美觀的卡片式呈現）
+    格式化收藏列表為 LINE Flex Message（緊湊版 - 每個商品使用較小的卡片）
     
     Args:
         favorites: 收藏的商品列表（包含位置資訊和 image_url）
@@ -429,14 +483,13 @@ def format_favorites_flex(favorites: list, app=None) -> Optional[List[FlexSendMe
     try:
         flex_messages = []
         
-        # 為每個收藏商品建立一個 Flex Bubble
-        for product in favorites[:12]:  # Flex Message 可以顯示更多商品
+        # 為每個收藏商品建立一個緊湊的 Flex Bubble
+        for product in favorites[:12]:  # Flex Message 最多 12 個
             name = product.get('name', '未知產品')
             price = float(product.get('price', 0))
             stock = product.get('stock', 0)
             product_id = product.get('id')
             image_url = product.get('image_url') or DEFAULT_PRODUCT_IMAGE_URL
-            brand = product.get('brand', '')
             
             # 處理存貨狀態
             if stock is None:
@@ -447,25 +500,8 @@ def format_favorites_flex(favorites: list, app=None) -> Optional[List[FlexSendMe
                 except (ValueError, TypeError):
                     stock = 0
             
-            # 位置資訊
-            locations = product.get('locations', [])
-            location_text = "📍 位置：暫無"
-            if locations:
-                loc = locations[0]
-                area = loc.get('area', '未知區域')
-                shelf = loc.get('shelf', '')
-                location_text = f"📍 {area}"
-                if shelf:
-                    location_text += f" - {shelf}"
-            
-            # 建立 Flex Bubble
+            # 建立緊湊的 Flex Bubble（無 Hero 圖片，減少空間）
             bubble = BubbleContainer(
-                hero=ImageComponent(
-                    url=image_url if image_url.startswith('https://') else DEFAULT_PRODUCT_IMAGE_URL,
-                    size="full",
-                    aspect_ratio="20:13",
-                    aspect_mode="cover"
-                ),
                 body=BoxComponent(
                     layout="vertical",
                     spacing="sm",
@@ -473,89 +509,44 @@ def format_favorites_flex(favorites: list, app=None) -> Optional[List[FlexSendMe
                         TextComponent(
                             text=name[:40] if len(name) <= 40 else name[:37] + "...",
                             weight="bold",
-                            size="xl",
+                            size="md",
                             wrap=True
                         ),
                         BoxComponent(
-                            layout="vertical",
-                            margin="md",
-                            spacing="xs",
+                            layout="baseline",
+                            spacing="sm",
                             contents=[
-                                BoxComponent(
-                                    layout="baseline",
-                                    spacing="sm",
-                                    contents=[
-                                        TextComponent(
-                                            text="價格",
-                                            color="#aaaaaa",
-                                            size="sm",
-                                            flex=1
-                                        ),
-                                        TextComponent(
-                                            text=f"${price:.0f}",
-                                            wrap=True,
-                                            color="#666666",
-                                            size="sm",
-                                            flex=5
-                                        )
-                                    ]
+                                TextComponent(
+                                    text=f"💰 ${price:.0f}",
+                                    color="#666666",
+                                    size="sm",
+                                    flex=1
                                 ),
-                                BoxComponent(
-                                    layout="baseline",
-                                    spacing="sm",
-                                    contents=[
-                                        TextComponent(
-                                            text="存貨",
-                                            color="#aaaaaa",
-                                            size="sm",
-                                            flex=1
-                                        ),
-                                        TextComponent(
-                                            text="✅ 有存貨" if stock > 0 else "❌ 缺貨中",
-                                            wrap=True,
-                                            color="#666666",
-                                            size="sm",
-                                            flex=5
-                                        )
-                                    ]
-                                ),
-                                BoxComponent(
-                                    layout="baseline",
-                                    spacing="sm",
-                                    contents=[
-                                        TextComponent(
-                                            text="位置",
-                                            color="#aaaaaa",
-                                            size="sm",
-                                            flex=1
-                                        ),
-                                        TextComponent(
-                                            text=location_text,
-                                            wrap=True,
-                                            color="#666666",
-                                            size="sm",
-                                            flex=5
-                                        )
-                                    ]
+                                TextComponent(
+                                    text="✅ 有存貨" if stock > 0 else "❌ 缺貨",
+                                    color="#666666",
+                                    size="sm",
+                                    flex=1
                                 )
                             ]
                         )
                     ]
                 ),
                 footer=BoxComponent(
-                    layout="vertical",
+                    layout="horizontal",
                     spacing="sm",
                     contents=[
                         ButtonComponent(
-                            style="primary",
-                            color="#FF6B9D",
+                            style="link",
+                            height="sm",
                             action=MessageAction(
-                                label="查看詳情",
+                                label="查看",
                                 text=f"詳情：{name}"
                             )
                         ),
                         ButtonComponent(
-                            style="secondary",
+                            style="link",
+                            height="sm",
                             action=PostbackAction(
                                 label="取消收藏",
                                 data=f"action=favorite&product_id={product_id}&source=favorites"
@@ -565,7 +556,7 @@ def format_favorites_flex(favorites: list, app=None) -> Optional[List[FlexSendMe
                 )
             )
             
-            flex_messages.append(FlexSendMessage(alt_text=f"收藏商品：{name}", contents=bubble))
+            flex_messages.append(FlexSendMessage(alt_text=f"收藏：{name}", contents=bubble))
         
         return flex_messages if flex_messages else None
 

@@ -19,7 +19,7 @@ from core.mode_handlers import (
 )
 from core.formatters import (
     format_product_carousel, format_product_search_result,
-    format_favorites_flex, format_favorites_carousel,
+    format_favorites_flex, format_favorites_carousel, format_favorites_compact,
     add_quick_reply_to_message
 )
 
@@ -260,37 +260,38 @@ def handle_favorite_commands(event, message_text: str, user_id: str, line_bot_ap
                     message
                 )
             else:
-                # 優先使用 Flex Message（更美觀的卡片式呈現）
-                flex_messages = format_favorites_flex(favorites, app)
-                if flex_messages:
-                    # Flex Message 返回的是列表，需要逐個發送
-                    # 但 LINE API 的 reply_message 可以接受列表
+                # 優先使用 Carousel（有互動按鈕，可查看詳情和取消收藏）
+                carousel_message = format_favorites_carousel(favorites)
+                if carousel_message:
                     line_bot_api.reply_message(
                         event.reply_token,
-                        flex_messages
+                        carousel_message
                     )
-                    app.logger.info(f"成功回覆 Flex Message 收藏列表給 {user_id}: {len(favorites)} 個商品")
+                    app.logger.info(f"成功回覆 Carousel 收藏列表給 {user_id}: {len(favorites)} 個商品")
                 else:
-                    # 回退到 Carousel
-                    carousel_message = format_favorites_carousel(favorites)
-                    if carousel_message:
+                    # 回退到緊湊的 Flex Message
+                    flex_messages = format_favorites_flex(favorites, app)
+                    if flex_messages:
+                        # Flex Message 列表後加上一個帶快速回復的提示訊息
+                        quick_reply_message = TextSendMessage(text=f"❤️ 共 {len(favorites)} 個收藏商品")
+                        quick_reply_message = add_quick_reply_to_message(quick_reply_message, mode='default')
+                        # 將快速回復訊息加入列表最後
+                        all_messages = flex_messages + [quick_reply_message]
                         line_bot_api.reply_message(
                             event.reply_token,
-                            carousel_message
+                            all_messages
                         )
-                        app.logger.info(f"成功回覆 Carousel 收藏列表給 {user_id}: {len(favorites)} 個商品")
+                        app.logger.info(f"成功回覆 Flex Message 收藏列表給 {user_id}: {len(favorites)} 個商品")
                     else:
-                        # 最後回退到文字訊息
-                        reply_text = f"❤️ 我的收藏（共 {len(favorites)} 個商品）：\n\n"
-                        for idx, product in enumerate(favorites[:10], 1):
-                            reply_text += f"【{idx}】{product.get('name', '未知產品')}\n"
-                            reply_text += f"💰 ${float(product.get('price', 0)):.0f}\n\n"
-                        message = TextSendMessage(text=reply_text)
-                        message = add_quick_reply_to_message(message, mode='default')
-                        line_bot_api.reply_message(
-                            event.reply_token,
-                            message
-                        )
+                        # 最後回退到緊湊文字格式（但這個沒有互動功能，所以不推薦）
+                        compact_message = format_favorites_compact(favorites, app)
+                        if compact_message:
+                            compact_message = add_quick_reply_to_message(compact_message, mode='default')
+                            line_bot_api.reply_message(
+                                event.reply_token,
+                                compact_message
+                            )
+                            app.logger.info(f"成功回覆緊湊收藏列表給 {user_id}: {len(favorites)} 個商品")
             return True
         
         return False
