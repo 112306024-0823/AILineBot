@@ -52,6 +52,12 @@ def handle_text_message(event, line_bot_api, app):
             )
             return
         
+        # 先檢查是否為使用說明（優先於所有模式）
+        help_keywords = ["使用說明"]
+        if any(keyword in message_text for keyword in help_keywords):
+            handle_help_mode(event, user_id, line_bot_api, app)
+            return  # 已處理使用說明，直接返回
+        
         # 先檢查是否為收藏相關指令
         if handle_favorite_commands(event, message_text, user_id, line_bot_api, app):
             return  # 已處理收藏指令，直接返回
