@@ -124,6 +124,12 @@ def analyze_question(question: str, context: Optional[List[str]] = None) -> Dict
 問題：「A區有哪些商品？」
 輸出：{{"intent": "search_by_location", "search_term": null, "price_range": {{"min": null, "max": null}}, "location": "A區", "category": null, "sort_by": null, "limit": 20, "comparison_products": []}}
 
+問題：「1樓有哪些商品？」
+輸出：{{"intent": "search_by_location", "search_term": null, "price_range": {{"min": null, "max": null}}, "location": "1樓", "category": null, "sort_by": null, "limit": 20, "comparison_products": []}}
+
+問題：「A區有什麼？」
+輸出：{{"intent": "search_by_location", "search_term": null, "price_range": {{"min": null, "max": null}}, "location": "A區", "category": null, "sort_by": null, "limit": 20, "comparison_products": []}}
+
 問題：「飲料類的商品有哪些？」
 輸出：{{"intent": "search_by_category", "search_term": null, "price_range": {{"min": null, "max": null}}, "location": null, "category": "飲料", "sort_by": null, "limit": 20, "comparison_products": []}}
 
@@ -432,7 +438,7 @@ def query_database(analysis: Dict[str, Any]) -> List[Dict[str, Any]]:
         
         # 處理位置查詢
         if intent == "search_by_location" and location:
-            return _query_database_fallback(analysis)
+            return _query_location_products(analysis)
         
         # 處理分類查詢
         if intent == "search_by_category" and category:
@@ -509,6 +515,80 @@ def query_database(analysis: Dict[str, Any]) -> List[Dict[str, Any]]:
         return _query_database_fallback(analysis)
 
 
+def _query_location_products(analysis: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """
+    處理位置查詢（改進版 - 支援樓層和區域）
+    """
+    try:
+        from supabase_utils import search_products_by_location, get_product_locations
+        location = analysis.get("location")
+        limit = analysis.get("limit", 20)
+        
+        if not location:
+            return []
+        
+        # 識別 location 是樓層還是區域
+        location_str = str(location).strip()
+        
+        # 檢查是否為樓層（包含「樓」字或數字開頭）
+        floor = None
+        area = None
+        
+        # 樓層識別：1樓、2樓、一樓、二樓等
+        floor_keywords = {
+            "1樓": 1, "一樓": 1, "1": 1,
+            "2樓": 2, "二樓": 2, "2": 2,
+            "3樓": 3, "三樓": 3, "3": 3,
+            "4樓": 4, "四樓": 4, "4": 4,
+        }
+        
+        # 檢查是否為樓層
+        for keyword, floor_num in floor_keywords.items():
+            if keyword in location_str:
+                floor = floor_num
+                break
+        
+        # 如果不是樓層，則視為區域
+        if floor is None:
+            # 處理區域格式：A區、A、a區等
+            area = location_str
+            # 移除「區」字（如果有的話），因為資料庫可能存的是 "A" 而不是 "A區"
+            if area.endswith("區"):
+                area = area[:-1]
+            # 轉換為大寫
+            area = area.upper()
+        
+        # 查詢商品
+        results = search_products_by_location(area=area if area else None, floor=floor)
+        
+        products = []
+        seen_product_ids = set()  # 用於去重
+        
+        for item in results:
+            if "products" in item and item["products"]:
+                product = item["products"]
+                product_id = product.get("id")
+                
+                # 去重：同一個商品可能有多個位置
+                if product_id and product_id not in seen_product_ids:
+                    seen_product_ids.add(product_id)
+                    # 獲取該商品的所有位置資訊
+                    all_locations = get_product_locations(product_id)
+                    product["locations"] = all_locations if all_locations else [{
+                        "area": item.get("area"),
+                        "shelf": item.get("shelf"),
+                        "floor": item.get("floor")
+                    }]
+                    products.append(product)
+        
+        logger.info(f"位置查詢結果：找到 {len(products)} 個商品（位置：{location}, floor={floor}, area={area}）")
+        return products[:limit]
+        
+    except Exception as e:
+        logger.error(f"位置查詢失敗：{e}", exc_info=True)
+        return []
+
+
 def _query_database_fallback(analysis: Dict[str, Any]) -> List[Dict[str, Any]]:
     """
     回退方案：使用原有的函數查詢
@@ -518,20 +598,8 @@ def _query_database_fallback(analysis: Dict[str, Any]) -> List[Dict[str, Any]]:
         limit = analysis.get("limit", 10)
         
         if intent == "search_by_location":
-            location = analysis.get("location")
-            if location:
-                results = search_products_by_location(area=location)
-                products = []
-                for item in results:
-                    if "products" in item and item["products"]:
-                        product = item["products"]
-                        product["locations"] = [{
-                            "area": item.get("area"),
-                            "shelf": item.get("shelf"),
-                            "floor": item.get("floor")
-                        }]
-                        products.append(product)
-                return products[:limit]
+            # 使用改進的位置查詢函數
+            return _query_location_products(analysis)
         
         elif intent == "search_by_category":
             category = analysis.get("category")
@@ -759,7 +827,7 @@ def generate_answer(question: str, products: List[Dict[str, Any]], analysis: Dic
 """
         
         prompt = f"""
-你是一個友善可愛的購物助手，負責回答用戶關於商品的問題。
+你是小K，一個友善可愛的購物助手機器人，負責回答用戶關於商品的問題。
 
 用戶問題：{question}
 搜尋意圖：{intent}
@@ -801,8 +869,8 @@ def generate_answer(question: str, products: List[Dict[str, Any]], analysis: Dic
             suggestions.append("• 檢查拼字是否正確")
             suggestions.append("• 嘗試使用商品的部分名稱")
             
-            answer += "\n\n💡 找不到相關商品，建議您：\n"
             answer += "\n".join(suggestions[:3])  # 只顯示前3個建議
+            answer += "\n\n💬 如果還是找不到，可以直接告訴小K您要找什麼，小K會盡力幫您找找看！"
         
         # 如果找到商品但數量很多，添加提示
         elif len(products) > 10:
@@ -845,7 +913,7 @@ def answer_question(question: str) -> str:
         
     except Exception as e:
         logger.error(f"處理問題失敗：{e}", exc_info=True)
-        return "抱歉，處理您的問題時發生錯誤。請稍後再試或嘗試其他問題。"
+        return "😔 小K 很抱歉，處理您的問題時發生錯誤。請稍後再試或嘗試其他問題，小K 會繼續努力為您服務！"
 
 
 def answer_question_with_products(question: str) -> Tuple[str, List[Dict[str, Any]]]:
@@ -872,7 +940,7 @@ def answer_question_with_products(question: str) -> Tuple[str, List[Dict[str, An
         
     except Exception as e:
         logger.error(f"處理問題失敗：{e}", exc_info=True)
-        return "抱歉，處理您的問題時發生錯誤。請稍後再試或嘗試其他問題。", []
+        return "😔 小K 很抱歉，處理您的問題時發生錯誤。請稍後再試或嘗試其他問題，小K 會繼續努力為您服務！", []
 
 
 def get_recipe_ingredients(recipe_name: str) -> List[str]:

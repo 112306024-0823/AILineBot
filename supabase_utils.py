@@ -404,10 +404,10 @@ def search_products_by_location(
     floor: Optional[int] = None
 ) -> List[Dict[str, Any]]:
     """
-    根據位置搜尋商品
+    根據位置搜尋商品（改進版 - 支援模糊匹配）
     
     Args:
-        area: 區域
+        area: 區域（支援精確匹配和模糊匹配，例如 "A" 或 "A區"）
         shelf: 貨架
         floor: 樓層
     
@@ -421,10 +421,12 @@ def search_products_by_location(
         query = supabase.table("product_locations").select("*, products(*)")
         
         if area:
-            query = query.eq("area", area)
+            # 支援模糊匹配：如果資料庫存的是 "A"，用戶輸入 "A區" 也能找到
+            # 先嘗試精確匹配
+            query = query.ilike("area", f"%{area}%")
         if shelf:
-            query = query.eq("shelf", shelf)
-        if floor:
+            query = query.ilike("shelf", f"%{shelf}%")
+        if floor is not None:
             query = query.eq("floor", floor)
         
         result = query.execute()
