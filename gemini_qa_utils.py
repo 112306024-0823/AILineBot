@@ -12,11 +12,9 @@ from supabase_utils import (
     get_product_by_id
 )
 import logging
+from api_key_manager import get_api_key_manager
 
 logger = logging.getLogger(__name__)
-
-# 設定 API Key
-genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 
 
 def clean_markdown(text: str) -> str:
@@ -76,7 +74,8 @@ def analyze_question(question: str, context: Optional[List[str]] = None) -> Dict
         包含搜尋意圖和參數的字典
     """
     try:
-        model = genai.GenerativeModel("gemini-2.5-flash")
+        api_manager = get_api_key_manager()
+        model = api_manager.get_model("gemini-2.5-flash")
         
         # 構建上下文資訊
         context_text = ""
@@ -169,7 +168,8 @@ def analyze_question(question: str, context: Optional[List[str]] = None) -> Dict
 9. 只輸出 JSON，不要其他文字或說明
 """
         
-        response = model.generate_content(prompt)
+        # 使用 API key 管理器的重試機制
+        response = api_manager.generate_content_with_retry(model, prompt)
         result_text = response.text.strip()
         
         # 移除可能的 markdown 格式
@@ -674,7 +674,8 @@ def generate_answer(question: str, products: List[Dict[str, Any]], analysis: Dic
         自然語言回答
     """
     try:
-        model = genai.GenerativeModel("gemini-2.5-flash")
+        api_manager = get_api_key_manager()
+        model = api_manager.get_model("gemini-2.5-flash")
         
         intent = analysis.get("intent", "search_product")
         
@@ -848,7 +849,8 @@ def generate_answer(question: str, products: List[Dict[str, Any]], analysis: Dic
 只輸出回答內容，不要其他說明或格式標記。
 """
         
-        response = model.generate_content(prompt)
+        # 使用 API key 管理器的重試機制
+        response = api_manager.generate_content_with_retry(model, prompt)
         answer = response.text.strip()
         
         # 移除 Markdown 格式（LINE 不支援 Markdown）
@@ -954,7 +956,8 @@ def get_recipe_ingredients(recipe_name: str) -> List[str]:
         材料名稱列表
     """
     try:
-        model = genai.GenerativeModel("gemini-2.5-flash")
+        api_manager = get_api_key_manager()
+        model = api_manager.get_model("gemini-2.5-flash")
         
         prompt = f"""
 你是一個專業的料理助手。請為「{recipe_name}」這道料理列出所有需要的食材材料。
@@ -981,7 +984,8 @@ def get_recipe_ingredients(recipe_name: str) -> List[str]:
 輸出：{{"ingredients": ["米", "咖哩塊", "馬鈴薯", "紅蘿蔔", "洋蔥", "肉", "水"]}}
 """
         
-        response = model.generate_content(prompt)
+        # 使用 API key 管理器的重試機制
+        response = api_manager.generate_content_with_retry(model, prompt)
         result_text = response.text.strip()
         
         # 移除可能的 markdown 格式

@@ -2,9 +2,7 @@ import base64
 import google.generativeai as genai
 import os
 import logging
-
-# 設定 API Key
-genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+from api_key_manager import get_api_key_manager
 
 logger = logging.getLogger(__name__)
 
@@ -13,7 +11,8 @@ def extract_keywords_from_image_gemini(image_bytes: bytes):
     使用 Gemini 進行圖片理解（OCR + 商品辨識）
     回傳： keywords(list), full_text(str)
     """
-    model = genai.GenerativeModel("gemini-2.5-flash")
+    api_manager = get_api_key_manager()
+    model = api_manager.get_model("gemini-2.5-flash")
 
     # 將圖片轉 base64
     b64 = base64.b64encode(image_bytes).decode()
@@ -36,7 +35,9 @@ def extract_keywords_from_image_gemini(image_bytes: bytes):
     只輸出商品名稱和品牌，不要其他文字或解釋。
     """
 
-    response = model.generate_content(
+    # 使用 API key 管理器的重試機制
+    response = api_manager.generate_content_with_retry(
+        model,
         [
             {"mime_type": "image/jpeg", "data": image_bytes},
             prompt
